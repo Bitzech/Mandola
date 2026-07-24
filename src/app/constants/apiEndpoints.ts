@@ -37,6 +37,14 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string | number) => `/collections/${id}`,
     STATUS: (id: string | number) => `/collections/${id}/status`,
   },
+  COLORS: {
+    BASE: "/colors",
+    BY_ID: (id: string | number) => `/colors/${id}`,
+  },
+  SIZES: {
+    BASE: "/sizes",
+    BY_ID: (id: string | number) => `/sizes/${id}`,
+  },
   PRODUCTS: {
     BASE: "/products",
     BY_ID: (id: string | number) => `/products/${id}`,
