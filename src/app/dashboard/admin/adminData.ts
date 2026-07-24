@@ -126,7 +126,7 @@ export const ADMIN_PRODUCTS: AdminProduct[] = [
 export type AdminOrder = {
   id: string; customer: string; seller: string; product: string; productImg: string;
   amount: number; payStatus: "Paid" | "Pending" | "Refunded";
-  orderStatus: "Pending" | "Confirmed" | "Shipped" | "Delivered" | "Cancelled";
+  orderStatus: "Pending" | "Confirmed" | "Packed" | "Shipped" | "Delivered" | "Cancelled";
   date: string; commission: number;
 };
 

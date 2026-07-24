@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Heart } from "lucide-react";
 import { ALL_PRODUCTS, NAV_ITEMS } from "../data";
-import type { Page } from "../data";
+import type { Page, ProductType } from "../data";
 
 interface Props {
   page: NonNullable<Page>;
   onBack: () => void;
   onNavigate: (category: string, sub: string) => void;
+  onProductClick: (p: ProductType) => void;
 }
 
-export default function CategoryPage({ page, onBack, onNavigate }: Props) {
+export default function CategoryPage({ page, onBack, onNavigate, onProductClick }: Props) {
   const [sortBy, setSortBy] = useState("featured");
   const [priceFilter, setPriceFilter] = useState("all");
   const [wished, setWished] = useState<Set<number>>(new Set());
@@ -107,7 +108,7 @@ export default function CategoryPage({ page, onBack, onNavigate }: Props) {
             const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
             const isWished = wished.has(p.id);
             return (
-              <div key={p.id} className="group">
+              <div key={p.id} className="group cursor-pointer" onClick={() => onProductClick(p)}>
                 <div className="relative overflow-hidden bg-[#faf7f4] aspect-[3/4]">
                   <img src={p.img1} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   {p.tag && (
@@ -115,7 +116,7 @@ export default function CategoryPage({ page, onBack, onNavigate }: Props) {
                   )}
                   <span className="absolute top-3 right-10 text-[9px] font-semibold bg-[#d4145a] text-white px-2 py-1">-{discount}%</span>
                   <button
-                    onClick={() => setWished(w => { const n = new Set(w); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })}
+                    onClick={e => { e.stopPropagation(); setWished(w => { const n = new Set(w); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; }); }}
                     className="absolute top-3 right-3 p-1.5 bg-white rounded-full shadow-sm"
                   >
                     <Heart size={13} strokeWidth={1.5} className={isWished ? "fill-[#d4145a] text-[#d4145a]" : "text-[#6e6e6e]"} />
