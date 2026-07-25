@@ -60,8 +60,13 @@ export const authService = {
     return response.data;
   },
 
-  async changePassword(payload: { current_password?: string; currentPassword?: string; new_password?: string; newPassword?: string; confirm_password?: string }): Promise<ApiResponse> {
-    const response = await apiClient.put(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, payload);
+  async changePassword(payload: { current_password?: string; currentPassword?: string; new_password?: string; newPassword?: string; confirm_password?: string; confirmPassword?: string }): Promise<ApiResponse> {
+    const formattedPayload = {
+      current_password: payload.current_password || payload.currentPassword || "",
+      new_password: payload.new_password || payload.newPassword || "",
+      confirm_password: payload.confirm_password || payload.confirmPassword || payload.new_password || payload.newPassword || "",
+    };
+    const response = await apiClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, formattedPayload);
     return response.data;
   },
 
