@@ -29,16 +29,22 @@ export default function AdminProfile() {
     setLoading(true);
     try {
       const parts = form.name.split(" ");
-      await updateProfile({
+      const res = await updateProfile({
         name: form.name,
         first_name: parts[0] || "",
         last_name: parts.slice(1).join(" ") || "",
         email: form.email,
         phone: form.phone,
       });
-      toast.success("Admin profile updated.");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+
+      const resData = res?.data || res;
+      if (resData?.requires_verification) {
+        toast.info(resData.message || "Verification required for updated contact info.");
+      } else {
+        toast.success("Admin profile updated.");
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
     } catch (err: any) {
       toast.error(extractErrorMessage(err, "Failed to update admin profile"));
     } finally {
@@ -80,7 +86,7 @@ export default function AdminProfile() {
           </div>
           <div>
             <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Email Address</label>
-            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} type="email" className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white" />
+            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} type="email" className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-[#ffffff]" />
           </div>
           <div>
             <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Phone Number</label>

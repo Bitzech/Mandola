@@ -39,7 +39,7 @@ export default function MyProfile() {
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      await updateProfile({
+      const res = await updateProfile({
         name: form.name,
         first_name: firstName,
         last_name: lastName,
@@ -49,9 +49,14 @@ export default function MyProfile() {
         dob: form.dob,
       });
 
-      toast.success("Profile updated successfully!");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      const resData = res?.data || res;
+      if (resData?.requires_verification) {
+        toast.info(resData.message || "Verification required for updated contact info.");
+      } else {
+        toast.success("Profile updated successfully!");
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      }
     } catch (err: any) {
       toast.error(extractErrorMessage(err, "Failed to update profile."));
     } finally {

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { authService } from "../services/auth.service";
 import { STORAGE_KEYS } from "../constants/storageKeys";
 import { AuthUser, Role, LoginCredentials, RegisterPayload } from "../types/auth.types";
+import ProfileOTPModal from "../components/ProfileOTPModal";
 
 export type { Role, AuthUser };
 
@@ -51,6 +52,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleId, setRoleId] = useState<number | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+
+  const [pendingVerification, setPendingVerification] = useState<{
+    identifier: string;
+    type: "verify_email" | "verify_phone";
+  } | null>(() => {
+    try {
+      const stored = localStorage.getItem("MANDOLA_PENDING_VERIFICATION");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Keep pendingVerification synced with localStorage
+  useEffect(() => {
+    if (pendingVerification) {
+      localStorage.setItem("MANDOLA_PENDING_VERIFICATION", JSON.stringify(pendingVerification));
+    } else {
+      localStorage.removeItem("MANDOLA_PENDING_VERIFICATION");
+    }
+  }, [pendingVerification]);
+
+  // Auto-detect unverified profile state on app load/restore
+  useEffect(() => {
+    if (user && isAuthenticated && !loading) {
+      if (!pendingVerification) {
+        const isEmailUnver =
+          user.email_verified_at === null ||
+          user.email_verified_at === undefined ||
+          user.email_verified_at === false;
+        const isPhoneUnver =
+          user.phone_verified === 0 ||
+          user.phone_verified === false ||
+          user.phone_verified === "0";
+
+        if (isEmailUnver && user.email) {
+          const verObj = { identifier: user.email, type: "verify_email" as const };
+          setPendingVerification(verObj);
+        } else if (isPhoneUnver && user.phone) {
+          const verObj = { identifier: user.phone, type: "verify_phone" as const };
+          setPendingVerification(verObj);
+        }
+      }
+    }
+  }, [user, isAuthenticated, loading]);
 
   // Synchronize auth state and persist to local storage
   const saveAuthSession = (data: {
@@ -197,6 +243,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await authService.verifyOTP(identifier, otp, type);
     const resData = data.data || data;
 
+    if (resData?.requires_verification) {
+      const isPhoneVer = resData.verify_phone && !resData.verify_email;
+      const targetType = isPhoneVer ? "verify_phone" : "verify_email";
+      const targetIdentifier = resData.identifier || identifier;
+      const verObj = { identifier: targetIdentifier, type: targetType as "verify_email" | "verify_phone" };
+      setPendingVerification(verObj);
+    } else {
+      setPendingVerification(null);
+    }
+
     const accessToken =
       resData.access_token || resData.accessToken || resData.tokens?.access_token || data.access_token;
     const refreshTokenValue =
@@ -245,11 +301,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (payload: Partial<AuthUser>) => {
     const data = await authService.updateProfile(payload);
-    const updatedUser = data.data || data;
-    if (updatedUser && typeof updatedUser === "object") {
-      const mergedUser = { ...user, ...updatedUser };
-      setUser(mergedUser);
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mergedUser));
+    const resData = data.data || data;
+
+    if (resData && typeof resData === "object") {
+      if (resData.requires_verification) {
+        const isPhoneVer = resData.verify_phone && !resData.verify_email;
+        const targetType = isPhoneVer ? "verify_phone" : "verify_email";
+        const targetIdentifier = resData.identifier || (isPhoneVer ? payload.phone : payload.email);
+
+        if (targetIdentifier) {
+          const verObj = { identifier: targetIdentifier, type: targetType as "verify_email" | "verify_phone" };
+          setPendingVerification(verObj);
+        }
+      }
+
+      const userPayload = resData.user || (resData.requires_verification ? null : resData);
+      if (userPayload) {
+        const mergedUser = { ...user, ...userPayload };
+        setUser(mergedUser);
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mergedUser));
+      }
     }
     return data;
   };
@@ -260,6 +331,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await authService.logout();
+    setPendingVerification(null);
+    localStorage.removeItem("MANDOLA_PENDING_VERIFICATION");
     setUser(null);
     setRole(null);
     setRoleId(null);
@@ -288,6 +361,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {pendingVerification && (
+        <ProfileOTPModal
+          isOpen={true}
+          onClose={() => {}}
+          initialIdentifier={pendingVerification.identifier}
+          initialType={pendingVerification.type}
+          onSuccess={() => {
+            setPendingVerification(null);
+          }}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
@@ -297,3 +381,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
