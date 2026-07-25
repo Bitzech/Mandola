@@ -32,12 +32,17 @@ export const authService = {
   },
 
   async forgotPassword(email: string): Promise<ApiResponse> {
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
+    const response = await apiClient.post(API_ENDPOINTS.AUTH.SEND_OTP, { identifier: email, type: "forgot_password" });
     return response.data;
   },
 
-  async resetPassword(payload: { token: string; password: string; confirm_password?: string }): Promise<ApiResponse> {
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, payload);
+  async resetPassword(payload: { identifier?: string; token?: string; new_password?: string; password?: string; confirm_password?: string }): Promise<ApiResponse> {
+    const formattedPayload = {
+      identifier: payload.identifier || payload.token || "",
+      new_password: payload.new_password || payload.password || "",
+      confirm_password: payload.confirm_password || payload.password || "",
+    };
+    const response = await apiClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, formattedPayload);
     return response.data;
   },
 

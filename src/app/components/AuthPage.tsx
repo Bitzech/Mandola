@@ -19,11 +19,10 @@ export default function AuthPage({ onBack }: Props) {
 
   const isForgotPath = location.pathname.includes("forgot-password");
   const [tab, setTab] = useState<"signin" | "register" | "forgot" | "reset">(isForgotPath ? "forgot" : "signin");
-  const [resetToken, setResetToken] = useState("");
   const [subStep, setSubStep] = useState<"form" | "otp">("form");
   const [showPass, setShowPass] = useState(false);
 
-  const [otpType, setOtpType] = useState<"verify_email" | "verify_phone">("verify_email");
+  const [otpType, setOtpType] = useState<"verify_email" | "verify_phone" | "forgot_password">("verify_email");
   const [activeIdentifier, setActiveIdentifier] = useState<string>("");
 
   const [form, setForm] = useState({
@@ -212,6 +211,14 @@ export default function AuthPage({ onBack }: Props) {
       const verifyRes = await verifyOTP(currentIdentifier, otp.trim(), otpType);
       const resData = verifyRes?.data || verifyRes;
 
+      if (otpType === ("forgot_password" as any) || tab === "forgot") {
+        toast.success("OTP verified successfully! Please enter your new password.");
+        setSubStep("form");
+        setTab("reset");
+        setOtp("");
+        return;
+      }
+
       const accessToken =
         resData?.access_token ||
         resData?.accessToken ||
@@ -304,16 +311,21 @@ export default function AuthPage({ onBack }: Props) {
   };
 
   const handleForgotPasswordSubmit = async () => {
-    if (!form.email) {
+    const targetIdentifier = form.email.trim();
+    if (!targetIdentifier) {
       setAuthError("Please enter your email address");
       return;
     }
     setLoading(true);
     setAuthError("");
     try {
-      await forgotPassword(form.email);
-      toast.success("Password reset code sent to your email!");
-      setTab("reset");
+      await sendOTP(targetIdentifier, "forgot_password");
+      toast.success("6-digit OTP code sent to your email address!");
+      setOtpType("forgot_password" as any);
+      setActiveIdentifier(targetIdentifier);
+      setSubStep("otp");
+      setCountdown(60);
+      setOtp("");
     } catch (err: any) {
       parseBackendError(err);
     } finally {
@@ -322,8 +334,9 @@ export default function AuthPage({ onBack }: Props) {
   };
 
   const handleResetPasswordSubmit = async () => {
-    if (!resetToken.trim()) {
-      setAuthError("Please enter the reset token/code sent to your email");
+    const targetIdentifier = activeIdentifier || form.email.trim();
+    if (!form.password) {
+      setAuthError("Please enter a new password");
       return;
     }
     if (form.password !== form.confirm) {
@@ -336,13 +349,12 @@ export default function AuthPage({ onBack }: Props) {
     setAuthError("");
     try {
       await resetPassword({
-        token: resetToken.trim(),
-        password: form.password,
+        identifier: targetIdentifier,
+        new_password: form.password,
         confirm_password: form.confirm,
       });
       toast.success("Password reset successfully! Please sign in with your new password.");
-      setTab("signin");
-      setResetToken("");
+      handleTabChange("signin");
       setForm((f) => ({ ...f, password: "", confirm: "" }));
     } catch (err: any) {
       parseBackendError(err);
@@ -521,22 +533,24 @@ export default function AuthPage({ onBack }: Props) {
                 </div>
               )}
 
-              <div>
-                <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
-                  Email Address
-                </label>
-                <input
-                  value={form.email}
-                  onChange={setField("email")}
-                  required
-                  type="email"
-                  placeholder="hello@example.com"
-                  className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white"
-                />
-                {fieldErrors.email && (
-                  <p className="text-xs text-red-500 mt-1 font-light">{fieldErrors.email}</p>
-                )}
-              </div>
+              {tab !== "reset" && (
+                <div>
+                  <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    value={form.email}
+                    onChange={setField("email")}
+                    required
+                    type="email"
+                    placeholder="hello@example.com"
+                    className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white"
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-500 mt-1 font-light">{fieldErrors.email}</p>
+                  )}
+                </div>
+              )}
 
               {tab === "register" && (
                 <div>
@@ -554,21 +568,6 @@ export default function AuthPage({ onBack }: Props) {
                       {fieldErrors.phone || fieldErrors.phone_number}
                     </p>
                   )}
-                </div>
-              )}
-
-              {tab === "reset" && (
-                <div>
-                  <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
-                    Reset Token / Code
-                  </label>
-                  <input
-                    value={resetToken}
-                    onChange={(e) => setResetToken(e.target.value)}
-                    required
-                    placeholder="Enter code from email"
-                    className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white font-mono"
-                  />
                 </div>
               )}
 
@@ -644,7 +643,7 @@ export default function AuthPage({ onBack }: Props) {
                   : tab === "register"
                   ? "Create My Account"
                   : tab === "forgot"
-                  ? "Send Reset Link"
+                  ? "Send Verification OTP"
                   : "Set New Password"}
               </button>
 

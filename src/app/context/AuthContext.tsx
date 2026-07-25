@@ -32,7 +32,7 @@ interface AuthContextType {
   refreshToken: () => Promise<any>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<any>;
-  resetPassword: (payload: { token: string; password: string; confirm_password?: string }) => Promise<any>;
+  resetPassword: (payload: { identifier?: string; token?: string; new_password?: string; password?: string; confirm_password?: string }) => Promise<any>;
   updateProfile: (payload: Partial<AuthUser>) => Promise<any>;
   changePassword: (payload: { current_password?: string; new_password?: string; confirm_password?: string }) => Promise<any>;
   saveAuthSession: (data: {
@@ -295,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await authService.forgotPassword(email);
   };
 
-  const resetPassword = async (payload: { token: string; password: string; confirm_password?: string }) => {
+  const resetPassword = async (payload: { identifier?: string; token?: string; new_password?: string; password?: string; confirm_password?: string }) => {
     return await authService.resetPassword(payload);
   };
 
