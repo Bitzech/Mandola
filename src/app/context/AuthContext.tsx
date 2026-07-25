@@ -1,19 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { api, clearAuthStorage } from "../services/api";
+import { authService } from "../services/auth.service";
+import { STORAGE_KEYS } from "../constants/storageKeys";
+import { AuthUser, Role, LoginCredentials, RegisterPayload } from "../types/auth.types";
 
-export type Role = "customer" | "seller" | "admin";
-
-export interface AuthUser {
-  id?: string | number;
-  first_name?: string;
-  last_name?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  role_id?: number;
-  role?: Role;
-  [key: string]: any;
-}
+export type { Role, AuthUser };
 
 export function getRoleFromId(roleId?: number | string | null): Role {
   const id = Number(roleId);
@@ -34,19 +24,16 @@ interface AuthContextType {
   roleId: number | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (credentials: { email: string; password: string }) => Promise<any>;
-  register: (payload: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone?: string;
-    password: string;
-    confirm_password?: string;
-  }) => Promise<any>;
+  login: (credentials: LoginCredentials) => Promise<any>;
+  register: (payload: RegisterPayload) => Promise<any>;
   sendOTP: (identifier: string, type?: string) => Promise<any>;
   verifyOTP: (identifier: string, otp: string, type?: string) => Promise<any>;
   refreshToken: () => Promise<any>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<any>;
+  resetPassword: (payload: { token: string; password: string; confirm_password?: string }) => Promise<any>;
+  updateProfile: (payload: Partial<AuthUser>) => Promise<any>;
+  changePassword: (payload: { current_password?: string; new_password?: string; confirm_password?: string }) => Promise<any>;
   saveAuthSession: (data: {
     accessToken?: string;
     refreshToken?: string;
@@ -65,57 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Restore session from localStorage on initial load
-  useEffect(() => {
-    try {
-      const accessToken = localStorage.getItem("access_token");
-      const storedUser = localStorage.getItem("mandola_user");
-      const storedRoleId = localStorage.getItem("mandola_role_id");
-      const storedRole = localStorage.getItem("mandola_role");
-
-      if (accessToken) {
-        let u: AuthUser | null = null;
-        if (storedUser) {
-          try {
-            u = JSON.parse(storedUser);
-          } catch {
-            u = null;
-          }
-        }
-
-        let rId: number = storedRoleId ? Number(storedRoleId) : u?.role_id ? Number(u.role_id) : 3;
-        let rName: Role = storedRole ? (storedRole as Role) : u?.role ? u.role : getRoleFromId(rId);
-
-        setUser(u || { role: rName, role_id: rId });
-        setRole(rName);
-        setRoleId(rId);
-        setIsAuthenticated(true);
-      } else {
-        // Migration fallback for previous simple session state
-        const legacy = sessionStorage.getItem("mandola_auth");
-        if (legacy) {
-          try {
-            const parsed = JSON.parse(legacy);
-            if (parsed?.role) {
-              const rName: Role = parsed.role;
-              const rId = getIdFromRole(rName);
-              setUser(parsed);
-              setRole(rName);
-              setRoleId(rId);
-              setIsAuthenticated(true);
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to restore session", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Synchronize auth state and persist to local storage
   const saveAuthSession = (data: {
     accessToken?: string;
     refreshToken?: string;
@@ -126,13 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { accessToken, refreshToken, user: u, roleId: rId, role: rName } = data;
 
     if (accessToken) {
-      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     }
     if (refreshToken) {
-      localStorage.setItem("refresh_token", refreshToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
     }
 
-    const calculatedRoleId = rId ? Number(rId) : u?.role_id ? Number(u.role_id) : roleId || 3;
+    const calculatedRoleId = rId !== undefined && rId !== null ? Number(rId) : u?.role_id !== undefined && u?.role_id !== null ? Number(u.role_id) : roleId || 3;
     const calculatedRole = rName || u?.role || getRoleFromId(calculatedRoleId);
 
     const userObj: AuthUser = u
@@ -141,12 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? { ...user, role: calculatedRole, role_id: calculatedRoleId }
       : { role: calculatedRole, role_id: calculatedRoleId };
 
-    localStorage.setItem("mandola_user", JSON.stringify(userObj));
-    localStorage.setItem("mandola_role_id", String(calculatedRoleId));
-    localStorage.setItem("mandola_role", calculatedRole);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userObj));
+    localStorage.setItem(STORAGE_KEYS.ROLE_ID, String(calculatedRoleId));
+    localStorage.setItem(STORAGE_KEYS.ROLE, calculatedRole);
 
-    // Keep legacy fallback synced
-    sessionStorage.setItem("mandola_auth", JSON.stringify(userObj));
+    sessionStorage.setItem(STORAGE_KEYS.LEGACY_AUTH, JSON.stringify(userObj));
 
     setUser(userObj);
     setRole(calculatedRole);
@@ -154,14 +90,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(true);
   };
 
-  const login = async (credentials: { email: string; password: string }) => {
-    const response = await api.post("/auth/login", credentials);
-    const data = response.data;
+  // Restore session on app load and verify profile against backend
+  useEffect(() => {
+    async function initAuth() {
+      try {
+        const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+        const storedRoleId = localStorage.getItem(STORAGE_KEYS.ROLE_ID);
+        const storedRole = localStorage.getItem(STORAGE_KEYS.ROLE);
 
-    // Standardize token & user extraction
+        if (accessToken) {
+          let u: AuthUser | null = null;
+          if (storedUser) {
+            try {
+              u = JSON.parse(storedUser);
+            } catch {
+              u = null;
+            }
+          }
+
+          const rId: number = storedRoleId ? Number(storedRoleId) : u?.role_id ? Number(u.role_id) : 3;
+          const rName: Role = storedRole ? (storedRole as Role) : u?.role ? u.role : getRoleFromId(rId);
+
+          setUser(u || { role: rName, role_id: rId });
+          setRole(rName);
+          setRoleId(rId);
+          setIsAuthenticated(true);
+
+          // Silent sync with backend GET /auth/me or GET /auth/profile
+          try {
+            const profileRes = await authService.getMe();
+            const liveUser = profileRes.data || profileRes;
+            if (liveUser && typeof liveUser === "object") {
+              const liveRoleId = liveUser.role_id || rId;
+              const liveRole = getRoleFromId(liveRoleId);
+              saveAuthSession({
+                accessToken,
+                user: liveUser,
+                roleId: liveRoleId,
+                role: liveRole,
+              });
+            }
+          } catch (syncErr) {
+            // Keep local session if transient network error
+          }
+        } else {
+          const legacy = sessionStorage.getItem(STORAGE_KEYS.LEGACY_AUTH);
+          if (legacy) {
+            try {
+              const parsed = JSON.parse(legacy);
+              if (parsed?.role) {
+                const rName: Role = parsed.role;
+                const rId = getIdFromRole(rName);
+                setUser(parsed);
+                setRole(rName);
+                setRoleId(rId);
+                setIsAuthenticated(true);
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore session", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initAuth();
+  }, []);
+
+  const login = async (credentials: LoginCredentials) => {
+    const data = await authService.login(credentials);
     const resData = data.data || data;
-    const accessToken = resData.access_token || resData.accessToken || resData.tokens?.access_token || data.access_token;
-    const refreshTokenValue = resData.refresh_token || resData.refreshToken || resData.tokens?.refresh_token || data.refresh_token;
+
+    const accessToken =
+      resData.access_token || resData.accessToken || resData.tokens?.access_token || data.access_token;
+    const refreshTokenValue =
+      resData.refresh_token || resData.refreshToken || resData.tokens?.refresh_token || data.refresh_token;
     const userObj = resData.user || resData.user_info || data.user;
     const userRoleId = resData.role_id || userObj?.role_id || resData.role || userObj?.role || 3;
 
@@ -177,37 +185,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   };
 
-  const register = async (payload: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone?: string;
-    password: string;
-    confirm_password?: string;
-  }) => {
-    const response = await api.post("/auth/register", payload);
-    return response.data;
+  const register = async (payload: RegisterPayload) => {
+    return await authService.register(payload);
   };
 
-  const sendOTP = async (identifier: string, type: string = "verify_email") => {
-    const response = await api.post("/auth/send-otp", {
-      identifier,
-      type,
-    });
-    return response.data;
+  const sendOTP = async (identifier: string, type = "verify_email") => {
+    return await authService.sendOTP(identifier, type);
   };
 
-  const verifyOTP = async (identifier: string, otp: string, type: string = "verify_email") => {
-    const response = await api.post("/auth/verify-otp", {
-      identifier,
-      otp,
-      type,
-    });
-    const data = response.data;
+  const verifyOTP = async (identifier: string, otp: string, type = "verify_email") => {
+    const data = await authService.verifyOTP(identifier, otp, type);
     const resData = data.data || data;
 
-    const accessToken = resData.access_token || resData.accessToken || resData.tokens?.access_token || data.access_token;
-    const refreshTokenValue = resData.refresh_token || resData.refreshToken || resData.tokens?.refresh_token || data.refresh_token;
+    const accessToken =
+      resData.access_token || resData.accessToken || resData.tokens?.access_token || data.access_token;
+    const refreshTokenValue =
+      resData.refresh_token || resData.refreshToken || resData.tokens?.refresh_token || data.refresh_token;
     const userObj = resData.user || resData.user_info || data.user;
     const userRoleId = resData.role_id || userObj?.role_id || 3;
 
@@ -224,27 +217,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshToken = async () => {
-    const storedRefresh = localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token");
+    const storedRefresh =
+      localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN) ||
+      sessionStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     if (!storedRefresh) {
       throw new Error("No refresh token available");
     }
-    const response = await api.post("/auth/refresh-token", {
-      refresh_token: storedRefresh,
-    });
-    const data = response.data;
+    const data = await authService.refreshToken(storedRefresh);
     const resData = data.data || data;
     const newAccess = resData.access_token || resData.accessToken || data.access_token;
     const newRefresh = resData.refresh_token || resData.refreshToken || data.refresh_token || storedRefresh;
 
     if (newAccess) {
-      localStorage.setItem("access_token", newAccess);
-      localStorage.setItem("refresh_token", newRefresh);
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccess);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefresh);
     }
     return data;
   };
 
-  const logout = () => {
-    clearAuthStorage();
+  const forgotPassword = async (email: string) => {
+    return await authService.forgotPassword(email);
+  };
+
+  const resetPassword = async (payload: { token: string; password: string; confirm_password?: string }) => {
+    return await authService.resetPassword(payload);
+  };
+
+  const updateProfile = async (payload: Partial<AuthUser>) => {
+    const data = await authService.updateProfile(payload);
+    const updatedUser = data.data || data;
+    if (updatedUser && typeof updatedUser === "object") {
+      const mergedUser = { ...user, ...updatedUser };
+      setUser(mergedUser);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mergedUser));
+    }
+    return data;
+  };
+
+  const changePassword = async (payload: { current_password?: string; new_password?: string; confirm_password?: string }) => {
+    return await authService.changePassword(payload);
+  };
+
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
     setRole(null);
     setRoleId(null);
@@ -264,6 +279,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendOTP,
         verifyOTP,
         refreshToken,
+        forgotPassword,
+        resetPassword,
+        updateProfile,
+        changePassword,
         logout,
         saveAuthSession,
       }}

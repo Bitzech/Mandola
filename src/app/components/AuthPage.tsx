@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { Star, ShieldCheck, ArrowLeft, RefreshCw } from "lucide-react";
+import { useNavigate, useLocation } from "react-router";
+import { Star, ShieldCheck, ArrowLeft, RefreshCw, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import logoImg from "@/imports/image.png";
 import { useAuth, getRoleFromId } from "../context/AuthContext";
@@ -14,11 +14,17 @@ interface Props {
 
 export default function AuthPage({ onBack }: Props) {
   const navigate = useNavigate();
-  const { login, register, sendOTP, verifyOTP, saveAuthSession } = useAuth();
+  const location = useLocation();
+  const { login, register, sendOTP, verifyOTP, saveAuthSession, forgotPassword, resetPassword } = useAuth();
 
-  const [tab, setTab] = useState<"signin" | "register">("signin");
+  const isForgotPath = location.pathname.includes("forgot-password");
+  const [tab, setTab] = useState<"signin" | "register" | "forgot" | "reset">(isForgotPath ? "forgot" : "signin");
+  const [resetToken, setResetToken] = useState("");
   const [subStep, setSubStep] = useState<"form" | "otp">("form");
   const [showPass, setShowPass] = useState(false);
+
+  const [otpType, setOtpType] = useState<"verify_email" | "verify_phone">("verify_email");
+  const [activeIdentifier, setActiveIdentifier] = useState<string>("");
 
   const [form, setForm] = useState({
     firstName: "",
@@ -66,7 +72,7 @@ export default function AuthPage({ onBack }: Props) {
     setForm((f) => ({ ...f, [k]: e.target.value }));
   };
 
-  const handleTabChange = (t: "signin" | "register") => {
+  const handleTabChange = (t: "signin" | "register" | "forgot" | "reset") => {
     setTab(t);
     setSubStep("form");
     setAuthError("");
@@ -129,34 +135,16 @@ export default function AuthPage({ onBack }: Props) {
       });
 
       const resData = regResponse?.data || regResponse;
-      const accessToken =
-        resData?.access_token ||
-        resData?.accessToken ||
-        resData?.tokens?.access_token ||
-        regResponse?.access_token;
-      const refreshTokenValue =
-        resData?.refresh_token ||
-        resData?.refreshToken ||
-        resData?.tokens?.refresh_token ||
-        regResponse?.refresh_token;
-      const userObj = resData?.user || resData?.user_info || regResponse?.user;
-      const userRoleId = resData?.role_id || userObj?.role_id || 3;
+      const verifyPhone = resData?.verify_phone ?? regResponse?.verify_phone ?? false;
+      const targetIdentifier = resData?.identifier || form.email;
 
-      if (accessToken) {
-        setPendingTokens({
-          accessToken,
-          refreshToken: refreshTokenValue,
-          user: userObj,
-          roleId: userRoleId,
-        });
-      }
-
-      // Immediately call send-otp
-      await sendOTP(form.email, "verify_email");
-
-      toast.success("Account registered! OTP sent to your email.");
+      setOtpType(verifyPhone ? "verify_phone" : "verify_email");
+      setActiveIdentifier(targetIdentifier);
       setSubStep("otp");
       setCountdown(60);
+      setOtp("");
+
+      toast.success(resData?.message || "Registration successful! 6-digit OTP code sent to your email.");
     } catch (err: any) {
       parseBackendError(err);
     } finally {
@@ -184,18 +172,21 @@ export default function AuthPage({ onBack }: Props) {
       redirectUserByRole(userRole);
     } catch (err: any) {
       const status = err.response?.status;
-      const reqVerification = err.response?.data?.requires_verification;
+      const errData = err.response?.data || {};
+      const reqVerification = errData?.requires_verification || errData?.requiresVerification;
+      const code = errData?.code;
+      const isPhoneVer = code === "PHONE_NOT_VERIFIED" || errData?.verify_phone;
+      const targetIdentifier = errData?.identifier || (isPhoneVer ? form.phone : form.email);
 
       if (status === 403 && reqVerification) {
         setStoredLoginCreds({ email: form.email, password: form.password });
-        try {
-          await sendOTP(form.email, "verify_email");
-          toast.info("Account requires email verification. OTP sent!");
-          setSubStep("otp");
-          setCountdown(60);
-        } catch (otpErr: any) {
-          parseBackendError(otpErr);
-        }
+        const targetType = isPhoneVer ? "verify_phone" : "verify_email";
+        setOtpType(targetType);
+        setActiveIdentifier(targetIdentifier);
+        setSubStep("otp");
+        setCountdown(60);
+        setOtp("");
+        toast.info(errData.message || (isPhoneVer ? "Mobile number verification required. Please enter your OTP." : "Email address verification required. Please enter your OTP."));
       } else {
         parseBackendError(err);
       }
@@ -215,29 +206,45 @@ export default function AuthPage({ onBack }: Props) {
     setAuthError("");
     setFieldErrors({});
 
-    try {
-      const verifyRes = await verifyOTP(form.email, otp.trim(), "verify_email");
-      toast.success("Verification successful!");
+    const currentIdentifier = activeIdentifier || form.email;
 
+    try {
+      const verifyRes = await verifyOTP(currentIdentifier, otp.trim(), otpType);
       const resData = verifyRes?.data || verifyRes;
+
       const accessToken =
         resData?.access_token ||
         resData?.accessToken ||
         resData?.tokens?.access_token ||
-        verifyRes?.access_token ||
-        pendingTokens?.accessToken;
+        verifyRes?.access_token;
 
       const refreshTokenValue =
         resData?.refresh_token ||
         resData?.refreshToken ||
         resData?.tokens?.refresh_token ||
-        verifyRes?.refresh_token ||
-        pendingTokens?.refreshToken;
+        verifyRes?.refresh_token;
 
-      const userObj = resData?.user || resData?.user_info || verifyRes?.user || pendingTokens?.user;
-      const roleIdNum = resData?.role_id || userObj?.role_id || pendingTokens?.roleId || 3;
+      const userObj = resData?.user || resData?.user_info || verifyRes?.user;
+      const roleIdNum = resData?.role_id || userObj?.role_id || 3;
       const targetRole = getRoleFromId(roleIdNum);
 
+      // Check if backend indicates second verification step is required
+      if (resData?.requires_verification) {
+        setOtp("");
+        if (resData.verify_phone) {
+          setOtpType("verify_phone");
+          setActiveIdentifier(resData.identifier || form.phone);
+          toast.success(resData.message || "Email verified! 6-digit OTP sent to your mobile number.");
+        } else if (resData.verify_email) {
+          setOtpType("verify_email");
+          setActiveIdentifier(resData.identifier || form.email);
+          toast.success(resData.message || "Phone verified! 6-digit OTP sent to your email address.");
+        }
+        setCountdown(60);
+        return;
+      }
+
+      // If tokens returned upon complete dual verification:
       if (accessToken) {
         saveAuthSession({
           accessToken,
@@ -245,23 +252,23 @@ export default function AuthPage({ onBack }: Props) {
           user: userObj,
           roleId: roleIdNum,
         });
+        toast.success(resData.message || "Account fully verified! Welcome to Mandola.");
         redirectUserByRole(targetRole);
       } else if (storedLoginCreds) {
-        // If login 403 flow was used and verify OTP succeeded
         const autoLoginRes = await login(storedLoginCreds);
         const autoResData = autoLoginRes?.data || autoLoginRes;
         const autoRoleId = autoResData?.role_id || autoResData?.user?.role_id || 3;
+        toast.success("Account verified & signed in!");
+        redirectUserByRole(getRoleFromId(autoRoleId));
+      } else if (form.email && form.password) {
+        const autoLoginRes = await login({ email: form.email, password: form.password });
+        const autoResData = autoLoginRes?.data || autoLoginRes;
+        const autoRoleId = autoResData?.role_id || autoResData?.user?.role_id || 3;
+        toast.success("Account verified & signed in!");
         redirectUserByRole(getRoleFromId(autoRoleId));
       } else {
-        // Fallback: try logging in with registered password
-        if (form.email && form.password) {
-          const autoLoginRes = await login({ email: form.email, password: form.password });
-          const autoResData = autoLoginRes?.data || autoLoginRes;
-          const autoRoleId = autoResData?.role_id || autoResData?.user?.role_id || 3;
-          redirectUserByRole(getRoleFromId(autoRoleId));
-        } else {
-          redirectUserByRole("customer");
-        }
+        toast.success("Verification complete!");
+        redirectUserByRole("customer");
       }
     } catch (err: any) {
       parseBackendError(err);
@@ -274,9 +281,10 @@ export default function AuthPage({ onBack }: Props) {
     if (countdown > 0 || loading) return;
     setLoading(true);
     setAuthError("");
+    const targetIdentifier = activeIdentifier || (otpType === "verify_phone" ? form.phone : form.email);
     try {
-      await sendOTP(form.email, "verify_email");
-      toast.success("A new OTP code has been sent to your email.");
+      await sendOTP(targetIdentifier, otpType);
+      toast.success(`A new OTP code has been sent to your ${otpType === "verify_phone" ? "phone number" : "email address"}.`);
       setCountdown(60);
     } catch (err: any) {
       parseBackendError(err);
@@ -295,13 +303,65 @@ export default function AuthPage({ onBack }: Props) {
     }
   };
 
+  const handleForgotPasswordSubmit = async () => {
+    if (!form.email) {
+      setAuthError("Please enter your email address");
+      return;
+    }
+    setLoading(true);
+    setAuthError("");
+    try {
+      await forgotPassword(form.email);
+      toast.success("Password reset code sent to your email!");
+      setTab("reset");
+    } catch (err: any) {
+      parseBackendError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async () => {
+    if (!resetToken.trim()) {
+      setAuthError("Please enter the reset token/code sent to your email");
+      return;
+    }
+    if (form.password !== form.confirm) {
+      const msg = "Passwords do not match";
+      setFieldErrors({ confirm: msg, confirm_password: msg });
+      setAuthError(msg);
+      return;
+    }
+    setLoading(true);
+    setAuthError("");
+    try {
+      await resetPassword({
+        token: resetToken.trim(),
+        password: form.password,
+        confirm_password: form.confirm,
+      });
+      toast.success("Password reset successfully! Please sign in with your new password.");
+      setTab("signin");
+      setResetToken("");
+      setForm((f) => ({ ...f, password: "", confirm: "" }));
+    } catch (err: any) {
+      parseBackendError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
     if (tab === "signin") {
       handleLoginSubmit();
-    } else {
+    } else if (tab === "register") {
       handleRegisterSubmit();
+    } else if (tab === "forgot") {
+      handleForgotPasswordSubmit();
+    } else if (tab === "reset") {
+      handleResetPasswordSubmit();
     }
   };
 
@@ -317,20 +377,26 @@ export default function AuthPage({ onBack }: Props) {
 
         <div className="bg-white shadow-[0_4px_40px_rgba(0,0,0,0.06)] p-8 md:p-10">
           <div className="flex border-b border-[#ececec] mb-8">
-            {(["signin", "register"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => handleTabChange(t)}
-                disabled={loading}
-                className={`flex-1 pb-3 text-[11px] tracking-[0.2em] uppercase font-semibold transition-all ${
-                  tab === t
-                    ? "text-[#d4145a] border-b-2 border-[#d4145a] -mb-px"
-                    : "text-[#6e6e6e] hover:text-[#1a1a1a]"
-                }`}
-              >
-                {t === "signin" ? "Sign In" : "Create Account"}
-              </button>
-            ))}
+            {tab === "forgot" || tab === "reset" ? (
+              <div className="flex-1 pb-3 text-[11px] tracking-[0.2em] uppercase font-semibold text-[#d4145a] border-b-2 border-[#d4145a] -mb-px flex items-center gap-2">
+                <KeyRound size={14} /> Reset Password
+              </div>
+            ) : (
+              (["signin", "register"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => handleTabChange(t)}
+                  disabled={loading}
+                  className={`flex-1 pb-3 text-[11px] tracking-[0.2em] uppercase font-semibold transition-all ${
+                    tab === t
+                      ? "text-[#d4145a] border-b-2 border-[#d4145a] -mb-px"
+                      : "text-[#6e6e6e] hover:text-[#1a1a1a]"
+                  }`}
+                >
+                  {t === "signin" ? "Sign In" : "Create Account"}
+                </button>
+              ))
+            )}
           </div>
 
           {authError && (
@@ -347,10 +413,10 @@ export default function AuthPage({ onBack }: Props) {
                   <ShieldCheck size={22} className="text-[#d4145a]" />
                 </div>
                 <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mb-1">
-                  Verify Your Email
+                  {otpType === "verify_phone" ? "Verify Mobile Number" : "Verify Your Email"}
                 </h3>
                 <p className="text-xs text-[#6e6e6e] font-light leading-relaxed">
-                  We have sent a 6-digit OTP verification code to <span className="font-semibold text-[#1a1a1a]">{form.email}</span>
+                  We have sent a 6-digit OTP verification code to <span className="font-semibold text-[#1a1a1a]">{activeIdentifier || (otpType === "verify_phone" ? form.phone : form.email)}</span>
                 </p>
               </div>
 
@@ -491,44 +557,61 @@ export default function AuthPage({ onBack }: Props) {
                 </div>
               )}
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">
-                    Password
+              {tab === "reset" && (
+                <div>
+                  <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
+                    Reset Token / Code
                   </label>
-                  {tab === "signin" && (
+                  <input
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    required
+                    placeholder="Enter code from email"
+                    className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white font-mono"
+                  />
+                </div>
+              )}
+
+              {tab !== "forgot" && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">
+                      {tab === "reset" ? "New Password" : "Password"}
+                    </label>
+                    {tab === "signin" && (
+                      <button
+                        type="button"
+                        onClick={() => handleTabChange("forgot")}
+                        className="text-[10px] text-[#d4145a] tracking-wide hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      value={form.password}
+                      onChange={setField("password")}
+                      required
+                      type={showPass ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white pr-12"
+                    />
                     <button
                       type="button"
-                      onClick={() => navigate("/forgot-password")}
-                      className="text-[10px] text-[#d4145a] tracking-wide hover:underline"
+                      onClick={() => setShowPass((s) => !s)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6e6e6e] hover:text-[#d4145a] text-[10px] tracking-wide"
                     >
-                      Forgot Password?
+                      {showPass ? "Hide" : "Show"}
                     </button>
+                  </div>
+                  {fieldErrors.password && (
+                    <p className="text-xs text-red-500 mt-1 font-light">{fieldErrors.password}</p>
                   )}
                 </div>
-                <div className="relative">
-                  <input
-                    value={form.password}
-                    onChange={setField("password")}
-                    required
-                    type={showPass ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white pr-12"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass((s) => !s)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6e6e6e] hover:text-[#d4145a] text-[10px] tracking-wide"
-                  >
-                    {showPass ? "Hide" : "Show"}
-                  </button>
-                </div>
-                {fieldErrors.password && (
-                  <p className="text-xs text-red-500 mt-1 font-light">{fieldErrors.password}</p>
-                )}
-              </div>
+              )}
 
-              {tab === "register" && (
+              {(tab === "register" || tab === "reset") && (
                 <div>
                   <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
                     Confirm Password
@@ -558,7 +641,11 @@ export default function AuthPage({ onBack }: Props) {
                   ? "Please wait..."
                   : tab === "signin"
                   ? "Sign In to My Account"
-                  : "Create My Account"}
+                  : tab === "register"
+                  ? "Create My Account"
+                  : tab === "forgot"
+                  ? "Send Reset Link"
+                  : "Set New Password"}
               </button>
 
               {tab === "register" && (
@@ -587,7 +674,7 @@ export default function AuthPage({ onBack }: Props) {
                 disabled={loading}
                 className="w-full border border-[#ececec] text-[#1a1a1a] py-3 text-[10px] tracking-[0.2em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {tab === "signin" ? "New here? Create Account" : "Already have an account? Sign In"}
+                {tab === "signin" ? "New here? Create Account" : "Back to Sign In"}
               </button>
             </form>
           )}

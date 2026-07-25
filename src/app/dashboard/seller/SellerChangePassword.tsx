@@ -1,8 +1,14 @@
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "../../context/AuthContext";
+import { extractErrorMessage } from "../../utils/errorExtractor";
 
 export default function SellerChangePassword() {
+  const { changePassword } = useAuth();
   const [form, setForm] = useState({ current: "", newPass: "", confirm: "" });
   const [show, setShow] = useState({ current: false, newPass: false, confirm: false });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -11,14 +17,29 @@ export default function SellerChangePassword() {
     setError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.current) { setError("Please enter your current password."); return; }
     if (form.newPass.length < 6) { setError("New password must be at least 6 characters."); return; }
     if (form.newPass !== form.confirm) { setError("Passwords do not match."); return; }
-    setSuccess(true);
-    setForm({ current: "", newPass: "", confirm: "" });
-    setTimeout(() => setSuccess(false), 4000);
+    setLoading(true);
+    try {
+      await changePassword({
+        current_password: form.current,
+        new_password: form.newPass,
+        confirm_password: form.confirm,
+      });
+      toast.success("Seller password changed.");
+      setSuccess(true);
+      setForm({ current: "", newPass: "", confirm: "" });
+      setTimeout(() => setSuccess(false), 4000);
+    } catch (err: any) {
+      const msg = extractErrorMessage(err, "Failed to change seller password.");
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,7 +59,7 @@ export default function SellerChangePassword() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white border border-[#ececec] p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-[#ffffff] border border-[#ececec] p-6 space-y-5">
           {(["current", "newPass", "confirm"] as const).map(key => (
             <div key={key}>
               <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">
@@ -67,8 +88,8 @@ export default function SellerChangePassword() {
             Use at least 8 characters with a mix of uppercase, lowercase, numbers, and symbols.
           </p>
 
-          <button type="submit" className="w-full bg-[#1a1a1a] text-white py-3.5 text-[10px] tracking-[0.2em] uppercase font-semibold hover:bg-[#d4145a] transition-colors">
-            Update Password
+          <button type="submit" disabled={loading} className="w-full bg-[#1a1a1a] text-white py-3.5 text-[10px] tracking-[0.2em] uppercase font-semibold hover:bg-[#d4145a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            {loading ? <RefreshCw size={14} className="animate-spin" /> : "Update Password"}
           </button>
         </form>
       </div>

@@ -1,25 +1,55 @@
 import { useState } from "react";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Check, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
+import { extractErrorMessage } from "../utils/errorExtractor";
 
 export default function ChangePasswordPage() {
+  const { changePassword } = useAuth();
   const [form, setForm] = useState({ current: "", newPass: "", confirm: "" });
   const [show, setShow] = useState({ current: false, newPass: false, confirm: false });
+  const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError("");
     setForm(f => ({ ...f, [k]: e.target.value }));
+  };
 
   const toggle = (k: keyof typeof show) => setShow(s => ({ ...s, [k]: !s[k] }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (form.current !== "user") { setError("Current password is incorrect."); return; }
-    if (form.newPass.length < 6) { setError("New password must be at least 6 characters."); return; }
-    if (form.newPass !== form.confirm) { setError("Passwords do not match."); return; }
-    setDone(true);
-    setForm({ current: "", newPass: "", confirm: "" });
+
+    if (form.newPass.length < 6) {
+      setError("New password must be at least 6 characters.");
+      return;
+    }
+    if (form.newPass !== form.confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await changePassword({
+        current_password: form.current,
+        new_password: form.newPass,
+        confirm_password: form.confirm,
+      });
+
+      toast.success("Password changed successfully!");
+      setDone(true);
+      setForm({ current: "", newPass: "", confirm: "" });
+    } catch (err: any) {
+      const errMsg = extractErrorMessage(err, "Failed to change password.");
+      setError(errMsg);
+      toast.error(errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,8 +107,12 @@ export default function ChangePasswordPage() {
           ))}
 
           <div className="pt-1">
-            <button type="submit" className="w-full bg-[#1a1a1a] text-white py-3.5 text-[10px] tracking-[0.25em] uppercase font-semibold hover:bg-[#d4145a] transition-colors duration-300">
-              Update Password
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#1a1a1a] text-white py-3.5 text-[10px] tracking-[0.25em] uppercase font-semibold hover:bg-[#d4145a] transition-colors duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? <RefreshCw size={14} className="animate-spin" /> : "Update Password"}
             </button>
           </div>
 
