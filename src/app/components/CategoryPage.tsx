@@ -6,6 +6,8 @@ import type { Page, ProductType } from "../data";
 import { categoryService } from "../services/category.service";
 import { Category, SubCategory, Brand, Color, Size } from "../types/product.types";
 
+import { productService } from "../services/product.service";
+
 interface Props {
   page: NonNullable<Page>;
   onBack: () => void;
@@ -26,6 +28,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
   const [liveBrands, setLiveBrands] = useState<Brand[]>([]);
   const [liveColors, setLiveColors] = useState<Color[]>([]);
   const [liveSizes, setLiveSizes] = useState<Size[]>([]);
+  const [liveProducts, setLiveProducts] = useState<ProductType[]>([]);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,14 +40,30 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
       categoryService.getCategoriesWithSubCategories(),
       categoryService.getBrands(),
       categoryService.getColors(),
-      categoryService.getSizes()
+      categoryService.getSizes(),
+      productService.getProducts({ page: 1, limit: 50 })
     ])
-      .then(([allCats, allBrands, allColors, allSizes]) => {
+      .then(([allCats, allBrands, allColors, allSizes, prodsRes]) => {
         if (!mounted) return;
         setCategories(allCats);
         if (allBrands && allBrands.length > 0) setLiveBrands(allBrands);
         if (allColors && allColors.length > 0) setLiveColors(allColors);
         if (allSizes && allSizes.length > 0) setLiveSizes(allSizes);
+
+        const prodsList = prodsRes?.data?.products || prodsRes?.data?.items || prodsRes?.data || [];
+        if (Array.isArray(prodsList) && prodsList.length > 0) {
+          const mapped: ProductType[] = prodsList.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.sale_price || item.price),
+            mrp: Number(item.price),
+            img1: item.thumbnail || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=500&h=650&fit=crop",
+            img2: item.secondary_image || item.thumbnail || "https://images.unsplash.com/photo-1562572159-4efc207f5aff?w=500&h=650&fit=crop",
+            colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
+            tag: item.is_best_seller ? "Bestseller" : item.is_trending ? "Trending" : item.is_new_arrival ? "New" : "Featured",
+          }));
+          setLiveProducts(mapped);
+        }
 
         // Match category by slug or name
         const match = allCats.find(c =>
@@ -76,7 +95,8 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
     };
   }, [page.category]);
 
-  const sorted = [...ALL_PRODUCTS].sort((a, b) => {
+  const rawProducts = liveProducts.length > 0 ? liveProducts : ALL_PRODUCTS;
+  const sorted = [...rawProducts].sort((a, b) => {
     if (sortBy === "price-asc") return a.price - b.price;
     if (sortBy === "price-desc") return b.price - a.price;
     if (sortBy === "newest") return b.id - a.id;

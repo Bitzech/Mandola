@@ -57,6 +57,14 @@ export const API_ENDPOINTS = {
     VARIANTS: (productId: string | number) => `/products/${productId}/variants`,
     VARIANT_STOCK: (productId: string | number, variantId: string | number) => `/products/${productId}/variants/${variantId}/stock`,
   },
+  PRODUCT_ATTRIBUTES: {
+    BASE: "/product-attributes",
+    BY_ID: (id: string | number) => `/product-attributes/${id}`,
+  },
+  PRODUCT_ATTRIBUTE_VALUES: {
+    BASE: "/product-attribute-values",
+    BY_PRODUCT: (productId: string | number) => `/product-attribute-values/product/${productId}`,
+  },
   CART: {
     BASE: "/cart",
     ITEMS: "/cart/items",

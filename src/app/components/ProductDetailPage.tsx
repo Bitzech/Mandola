@@ -9,6 +9,7 @@ import { ALL_PRODUCTS } from "../data";
 import type { ProductType } from "../data";
 import { u } from "../data";
 import { categoryService } from "../services/category.service";
+import { productService } from "../services/product.service";
 import { Size, Color } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
@@ -174,6 +175,9 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
 
   const [liveSizes, setLiveSizes] = useState<Size[]>([]);
   const [liveColors, setLiveColors] = useState<Color[]>([]);
+  const [liveImages, setLiveImages] = useState<string[]>([]);
+  const [liveVariants, setLiveVariants] = useState<any[]>([]);
+  const [liveAttributes, setLiveAttributes] = useState<any[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -185,14 +189,37 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
       if (mounted && data && data.length > 0) setLiveColors(data);
     }).catch(err => console.error("[ProductDetail] Error fetching colors", err));
 
-    return () => { mounted = false; };
-  }, []);
+    if (product?.id) {
+      productService.getProductImages(product.id).then(res => {
+        if (mounted && res.data && res.data.length > 0) {
+          const imgs = res.data.map((i: any) => i.image || i.image_url);
+          if (imgs.length > 0) setLiveImages(imgs);
+        }
+      }).catch(() => {});
 
-  const images = [
-    product.img1, product.img2,
-    product.img1.replace("500,650", "600,750"),
-    product.img2.replace("500,650", "600,750"),
-  ];
+      productService.getProductVariants(product.id).then(res => {
+        if (mounted && res.data && res.data.length > 0) {
+          setLiveVariants(res.data);
+        }
+      }).catch(() => {});
+
+      productService.getProductAttributeValues(product.id).then(res => {
+        if (mounted && res.data && res.data.length > 0) {
+          setLiveAttributes(res.data);
+        }
+      }).catch(() => {});
+    }
+
+    return () => { mounted = false; };
+  }, [product?.id]);
+
+  const images = liveImages.length > 0
+    ? liveImages
+    : [
+        product.img1, product.img2,
+        product.img1.replace("500,650", "600,750"),
+        product.img2.replace("500,650", "600,750"),
+      ];
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const sizes = liveSizes.length > 0
     ? liveSizes.map(s => s.name || s.code)
