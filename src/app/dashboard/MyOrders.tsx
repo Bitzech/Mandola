@@ -33,7 +33,7 @@ export default function MyOrders({ onNavigate }: { onNavigate: NavigateFn }) {
       }
 
       if (filter !== "All") {
-        queryParams.status = filter.toLowerCase();
+        queryParams.order_status = filter.toLowerCase();
       }
 
       const response: any = await orderService.getOrders(queryParams);
