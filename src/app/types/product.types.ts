@@ -7,6 +7,7 @@ export interface Category {
   status?: string | number;
   sort_order?: number;
   products_count?: number;
+  subCategories?: SubCategory[];
 }
 
 export interface SubCategory {

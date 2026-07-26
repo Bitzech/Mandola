@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search, Heart, User, ShoppingBag, Menu, X, ChevronDown,
 } from "lucide-react";
@@ -6,6 +6,8 @@ import image_image_1 from "@/imports/image-1.png";
 import logoImg from "@/imports/image.png";
 import { NAV_ITEMS } from "../data";
 import type { Page } from "../data";
+import { categoryService } from "../services/category.service";
+import { Category, SubCategory } from "../types/product.types";
 
 interface Props {
   announcementVisible: boolean;
@@ -43,6 +45,43 @@ export default function Header({
   setCurrentPage, setCurrentProduct, setShowAuth,
 }: Props) {
   const megaRef = useRef<HTMLDivElement>(null);
+  const [liveCategories, setLiveCategories] = useState<Category[]>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    categoryService.getCategoriesWithSubCategories()
+      .then((data) => {
+        if (mounted && data && data.length > 0) {
+          setLiveCategories(data);
+        }
+      })
+      .catch((err) => {
+        console.error("[Header] Failed to fetch live categories", err);
+      })
+      .finally(() => {
+        if (mounted) setLoadingCats(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Build nav items dynamically from live API or fallback to static NAV_ITEMS
+  const displayNavItems = liveCategories.length > 0
+    ? liveCategories.map(cat => ({
+        label: cat.name,
+        slug: cat.slug,
+        sub: (cat.subCategories && cat.subCategories.length > 0)
+          ? cat.subCategories.map(s => ({ name: s.name, slug: s.slug }))
+          : [{ name: cat.name, slug: cat.slug }]
+      }))
+    : NAV_ITEMS.map(item => ({
+        label: item.label,
+        slug: item.label.toLowerCase().replace(/\s+/g, "-"),
+        sub: item.sub.map(s => ({ name: s, slug: s.toLowerCase().replace(/\s+/g, "-") }))
+      }));
 
   return (
     <>
@@ -155,33 +194,45 @@ export default function Header({
           </div>
         </div>
 
-        {/* Nav row */}
+        {/* Nav row with live categories */}
         <nav className="hidden md:flex items-center justify-center gap-8 px-12 py-3 bg-white">
-          {NAV_ITEMS.map(item => (
+          {displayNavItems.map(item => (
             <div key={item.label} className="relative">
               <button
                 className={`flex items-center gap-1 text-xs tracking-[0.12em] uppercase font-medium transition-colors ${megaMenu === item.label ? "text-[#d4145a]" : "text-[#1a1a1a] hover:text-[#d4145a]"} ${item.label === "Sale" ? "text-[#d4145a]" : ""}`}
                 onMouseEnter={() => setMegaMenu(item.label)}
                 onMouseLeave={() => setMegaMenu(null)}
+                onClick={() => {
+                  setCurrentPage({ category: item.slug || item.label, sub: "all" });
+                  setMegaMenu(null);
+                  window.scrollTo(0, 0);
+                }}
               >
                 {item.label}
-                <ChevronDown size={12} className={`transition-transform ${megaMenu === item.label ? "rotate-180" : ""}`} />
+                {item.sub.length > 0 && (
+                  <ChevronDown size={12} className={`transition-transform ${megaMenu === item.label ? "rotate-180" : ""}`} />
+                )}
               </button>
 
-              {megaMenu === item.label && (
+              {megaMenu === item.label && item.sub.length > 0 && (
                 <div
-                  className="absolute top-full left-1/2 -translate-x-1/2 mt-0 w-44 bg-white border border-[#ececec] shadow-lg py-3 z-50"
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-0 min-w-48 bg-white border border-[#ececec] shadow-lg py-3 z-50 rounded-b-md"
                   onMouseEnter={() => setMegaMenu(item.label)}
                   onMouseLeave={() => setMegaMenu(null)}
                 >
                   {item.sub.map(s => (
                     <a
-                      key={s}
+                      key={s.name}
                       href="#"
-                      onClick={e => { e.preventDefault(); setCurrentPage({ category: item.label, sub: s }); setMegaMenu(null); window.scrollTo(0, 0); }}
+                      onClick={e => {
+                        e.preventDefault();
+                        setCurrentPage({ category: item.slug || item.label, sub: s.slug || s.name });
+                        setMegaMenu(null);
+                        window.scrollTo(0, 0);
+                      }}
                       className="block px-5 py-2 text-xs tracking-wide text-[#6e6e6e] hover:text-[#d4145a] hover:bg-[#faf7f4] transition-colors"
                     >
-                      {s}
+                      {s.name}
                     </a>
                   ))}
                 </div>
@@ -201,14 +252,40 @@ export default function Header({
               <button onClick={() => setMobileOpen(false)}><X size={20} /></button>
             </div>
             <nav className="flex-1 overflow-y-auto p-5 space-y-0">
-              {NAV_ITEMS.map(item => (
-                <a
-                  key={item.label}
-                  href="#"
-                  className={`block py-3.5 border-b border-[#f0f0f0] text-sm tracking-wide ${item.label === "Sale" ? "text-[#d4145a] font-semibold" : "text-[#1a1a1a]"}`}
-                >
-                  {item.label}
-                </a>
+              {displayNavItems.map(item => (
+                <div key={item.label} className="py-2 border-b border-[#f0f0f0]">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage({ category: item.slug || item.label, sub: "all" });
+                      setMobileOpen(false);
+                      window.scrollTo(0, 0);
+                    }}
+                    className={`block py-1.5 text-sm tracking-wide font-medium ${item.label === "Sale" ? "text-[#d4145a]" : "text-[#1a1a1a]"}`}
+                  >
+                    {item.label}
+                  </a>
+                  {item.sub.length > 0 && (
+                    <div className="pl-4 pt-1 space-y-1">
+                      {item.sub.map(s => (
+                        <a
+                          key={s.name}
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage({ category: item.slug || item.label, sub: s.slug || s.name });
+                            setMobileOpen(false);
+                            window.scrollTo(0, 0);
+                          }}
+                          className="block text-xs text-[#6e6e6e] hover:text-[#d4145a] py-1"
+                        >
+                          {s.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </nav>
             <div className="p-5 space-y-3">
