@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutGrid, Users, Store, Package, Tag, Bookmark, Layers,
   ShoppingBag, CreditCard, Wallet, Send, RotateCcw, Star,
@@ -29,41 +29,94 @@ import WebsiteSettings from "./WebsiteSettings";
 import AdminProfile from "./AdminProfile";
 import AdminChangePassword from "./AdminChangePassword";
 
+import { useLocation, useNavigate as useNextNavigate } from "react-router";
+import { notificationService } from "../../services/notification.service";
+import { useAuth } from "../../context/AuthContext";
+
 interface Props { onLogout: () => void; }
 
-const NAV: { id: AdminSection; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }> }[] = [
-  { id: "home",          label: "Dashboard",          Icon: LayoutGrid  },
-  { id: "users",         label: "Users",              Icon: Users       },
-  { id: "sellers",       label: "Sellers",            Icon: Store       },
-  { id: "products",      label: "Products",           Icon: Package     },
-  { id: "categories",    label: "Categories",         Icon: Tag         },
-  { id: "brands",        label: "Brands",             Icon: Bookmark    },
-  { id: "collections",   label: "Collections",        Icon: Layers      },
-  { id: "orders",        label: "Orders",             Icon: ShoppingBag },
-  { id: "payments",      label: "Payments",           Icon: CreditCard  },
-  { id: "wallet",        label: "Admin Wallet",       Icon: Wallet      },
-  { id: "settlements",   label: "Settlements",        Icon: Send        },
-  { id: "returns",       label: "Returns & Refunds",  Icon: RotateCcw   },
-  { id: "reviews",       label: "Reviews",            Icon: Star        },
-  { id: "notifications", label: "Notifications",      Icon: Bell        },
-  { id: "invoices",      label: "Invoices",           Icon: FileText    },
-  { id: "reports",       label: "Reports",            Icon: BarChart2   },
-  { id: "settings",      label: "Website Settings",   Icon: Settings    },
-  { id: "profile",       label: "Profile",            Icon: User        },
-  { id: "change-password",label: "Change Password",  Icon: Lock        },
+const NAV: { id: AdminSection; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }>; path: string }[] = [
+  { id: "home",          label: "Dashboard",          Icon: LayoutGrid,  path: "/admin" },
+  { id: "users",         label: "Users",              Icon: Users,       path: "/admin/users" },
+  { id: "sellers",       label: "Sellers",            Icon: Store,       path: "/admin/sellers" },
+  { id: "products",      label: "Products",           Icon: Package,     path: "/admin/products" },
+  { id: "categories",    label: "Categories",         Icon: Tag,         path: "/admin/categories" },
+  { id: "brands",        label: "Brands",             Icon: Bookmark,    path: "/admin/brands" },
+  { id: "collections",   label: "Collections",        Icon: Layers,      path: "/admin/collections" },
+  { id: "orders",        label: "Orders",             Icon: ShoppingBag, path: "/admin/orders" },
+  { id: "payments",      label: "Payments",           Icon: CreditCard,  path: "/admin/payments" },
+  { id: "wallet",        label: "Admin Wallet",       Icon: Wallet,      path: "/admin/wallet" },
+  { id: "settlements",   label: "Settlements",        Icon: Send,        path: "/admin/settlements" },
+  { id: "returns",       label: "Returns & Refunds",  Icon: RotateCcw,   path: "/admin/returns" },
+  { id: "reviews",       label: "Reviews",            Icon: Star,        path: "/admin/reviews" },
+  { id: "notifications", label: "Notifications",      Icon: Bell,        path: "/admin/notifications" },
+  { id: "invoices",      label: "Invoices",           Icon: FileText,    path: "/admin/invoices" },
+  { id: "reports",       label: "Reports",            Icon: BarChart2,   path: "/admin/reports" },
+  { id: "settings",      label: "Website Settings",   Icon: Settings,    path: "/admin/settings" },
+  { id: "profile",       label: "Profile",            Icon: User,        path: "/admin/profile" },
+  { id: "change-password",label: "Change Password",  Icon: Lock,        path: "/admin/change-password" },
 ];
 
 export default function AdminDashboardPage({ onLogout }: Props) {
-  const [active, setActive] = useState<AdminSection>("home");
+  const { user } = useAuth();
+  const location = useLocation();
+  const routerNavigate = useNextNavigate();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const [unread, setUnread] = useState(0);
 
-  const unread = ADMIN_NOTIFICATIONS.filter(n => !n.read).length;
+  useEffect(() => {
+    let isMounted = true;
+    notificationService.getNotificationSummary()
+      .then((res: any) => {
+        const count = res?.data?.unread_count ?? res?.unread_count ?? 0;
+        if (isMounted) setUnread(count);
+      })
+      .catch(() => {
+        // Fallback to default if endpoint unavailable
+      });
+    return () => { isMounted = false; };
+  }, [location.pathname]);
+
+  const getSectionFromPath = (): AdminSection => {
+    const p = location.pathname;
+    if (p.includes("/admin/users")) return "users";
+    if (p.includes("/admin/sellers")) return "sellers";
+    if (p.includes("/admin/products")) return "products";
+    if (p.includes("/admin/categories") || p.includes("/admin/sub-categories")) return "categories";
+    if (p.includes("/admin/brands")) return "brands";
+    if (p.includes("/admin/collections")) return "collections";
+    if (p.includes("/admin/orders")) return "orders";
+    if (p.includes("/admin/payments")) return "payments";
+    if (p.includes("/admin/wallet")) return "wallet";
+    if (p.includes("/admin/settlements")) return "settlements";
+    if (p.includes("/admin/returns") || p.includes("/admin/refunds")) return "returns";
+    if (p.includes("/admin/reviews")) return "reviews";
+    if (p.includes("/admin/notifications")) return "notifications";
+    if (p.includes("/admin/invoices")) return "invoices";
+    if (p.includes("/admin/reports")) return "reports";
+    if (p.includes("/admin/settings")) return "settings";
+    if (p.includes("/admin/profile")) return "profile";
+    if (p.includes("/admin/change-password")) return "change-password";
+    return "home";
+  };
+
+  const active = getSectionFromPath();
+
+  const adminName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "Super Admin" : "Super Admin";
+  const adminRole = "Platform Administrator";
+  const adminAvatar = user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop";
 
   const navigate: AdminNavigateFn = (section) => {
-    setActive(section);
+    const item = NAV.find((n) => n.id === section);
+    if (item) {
+      routerNavigate(item.path);
+    } else {
+      routerNavigate("/admin");
+    }
     setDrawerOpen(false);
     window.scrollTo(0, 0);
   };
@@ -99,14 +152,14 @@ export default function AdminDashboardPage({ onLogout }: Props) {
       <div className="px-5 py-5 border-b border-[#ececec]">
         <div className="flex items-center gap-3">
           <div className="relative flex-shrink-0">
-            <img src={MOCK_ADMIN.avatar} alt={MOCK_ADMIN.name} className="w-10 h-10 rounded-full object-cover" />
+            <img src={adminAvatar} alt={adminName} className="w-10 h-10 rounded-full object-cover" />
             <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#d4145a] rounded-full flex items-center justify-center">
               <Shield size={8} strokeWidth={2} className="text-white" />
             </span>
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-semibold text-[#1a1a1a] truncate">{MOCK_ADMIN.name}</p>
-            <p className="text-[9px] tracking-[0.1em] uppercase text-[#d4145a] font-semibold">{MOCK_ADMIN.role}</p>
+            <p className="text-sm font-semibold text-[#1a1a1a] truncate">{adminName}</p>
+            <p className="text-[9px] tracking-[0.1em] uppercase text-[#d4145a] font-semibold">{adminRole}</p>
           </div>
         </div>
       </div>
@@ -154,114 +207,119 @@ export default function AdminDashboardPage({ onLogout }: Props) {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf7f4] font-['Jost',sans-serif]">
-      <div className="max-w-[1440px] mx-auto flex">
+    <div className="h-screen w-full overflow-hidden flex bg-[#faf7f4] font-['Jost',sans-serif]">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-60 xl:w-68 flex-shrink-0 bg-white border-r border-[#ececec] h-screen sticky top-0" style={{ width: "clamp(220px, 17vw, 272px)" }}>
+        <SidebarContent />
+      </aside>
 
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-60 xl:w-68 flex-shrink-0 bg-white border-r border-[#ececec] sticky top-0 h-screen overflow-y-auto" style={{ width: "clamp(220px, 17vw, 272px)" }}>
-          <SidebarContent />
-        </aside>
+      {/* Mobile Drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <aside className="relative w-72 bg-white h-full flex flex-col shadow-2xl overflow-y-auto">
+            <button onClick={() => setDrawerOpen(false)} className="absolute top-4 right-4 text-[#6e6e6e] hover:text-[#1a1a1a] z-10">
+              <X size={18} />
+            </button>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
 
-        {/* Mobile Drawer */}
-        {drawerOpen && (
-          <div className="fixed inset-0 z-50 flex lg:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
-            <aside className="relative w-72 bg-white h-full flex flex-col shadow-2xl overflow-y-auto">
-              <button onClick={() => setDrawerOpen(false)} className="absolute top-4 right-4 text-[#6e6e6e] hover:text-[#1a1a1a] z-10">
-                <X size={18} />
-              </button>
-              <SidebarContent />
-            </aside>
+      {/* Main */}
+      <main className="flex-1 flex flex-col h-screen min-w-0 overflow-y-auto">
+
+        {/* Top Navbar */}
+        <div className="sticky top-0 z-30 bg-white border-b border-[#ececec] px-4 lg:px-6 py-3 flex items-center gap-3 flex-shrink-0">
+          <button className="lg:hidden text-[#6e6e6e] hover:text-[#d4145a] transition-colors flex-shrink-0" onClick={() => setDrawerOpen(true)}>
+            <Menu size={20} strokeWidth={1.5} />
+          </button>
+
+          {/* Global Search */}
+          <div className="relative flex-1 max-w-sm hidden sm:block">
+            <Search size={13} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]" />
+            <input
+              value={searchVal}
+              onChange={e => setSearchVal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && searchVal.trim()) {
+                  navigate("products");
+                }
+              }}
+              placeholder="Search users, orders, products…"
+              className="w-full border border-[#ececec] pl-8 pr-4 py-2 text-xs text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white"
+            />
           </div>
-        )}
 
-        {/* Main */}
-        <main className="flex-1 min-w-0">
-
-          {/* Top Navbar */}
-          <div className="sticky top-0 z-30 bg-white border-b border-[#ececec] px-4 lg:px-6 py-3 flex items-center gap-3">
-            <button className="lg:hidden text-[#6e6e6e] hover:text-[#d4145a] transition-colors flex-shrink-0" onClick={() => setDrawerOpen(true)}>
-              <Menu size={20} strokeWidth={1.5} />
+          <div className="flex items-center gap-1 ml-auto">
+            {/* Quick Add */}
+            <button
+              onClick={() => navigate("products")}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#d4145a] text-white text-[9px] tracking-[0.15em] uppercase font-semibold hover:bg-[#b8114d] transition-colors"
+            >
+              <Plus size={11} strokeWidth={2.5} />
+              Quick Add
             </button>
 
-            {/* Global Search */}
-            <div className="relative flex-1 max-w-sm hidden sm:block">
-              <Search size={13} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]" />
-              <input
-                value={searchVal}
-                onChange={e => setSearchVal(e.target.value)}
-                placeholder="Search users, orders, products…"
-                className="w-full border border-[#ececec] pl-8 pr-4 py-2 text-xs text-[#1a1a1a] placeholder-[#c0c0c0] focus:outline-none focus:border-[#d4145a] transition-colors bg-white"
-              />
-            </div>
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDarkMode(d => !d)}
+              className="p-2 text-[#6e6e6e] hover:text-[#d4145a] transition-colors"
+              title={darkMode ? "Light Mode" : "Dark Mode"}
+            >
+              {darkMode ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
+            </button>
 
-            <div className="flex items-center gap-1 ml-auto">
-              {/* Quick Add */}
-              <button className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#d4145a] text-white text-[9px] tracking-[0.15em] uppercase font-semibold hover:bg-[#b8114d] transition-colors">
-                <Plus size={11} strokeWidth={2.5} />
-                Quick Add
-              </button>
-
-              {/* Dark mode toggle */}
-              <button
-                onClick={() => setDarkMode(d => !d)}
-                className="p-2 text-[#6e6e6e] hover:text-[#d4145a] transition-colors"
-                title={darkMode ? "Light Mode" : "Dark Mode"}
-              >
-                {darkMode ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
-              </button>
-
-              {/* Bell */}
-              <button
-                onClick={() => navigate("notifications")}
-                className={`relative p-2 transition-colors ${active === "notifications" ? "text-[#d4145a]" : "text-[#6e6e6e] hover:text-[#d4145a]"}`}
-              >
-                <Bell size={17} strokeWidth={1.5} />
-                {unread > 0 && (
-                  <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#d4145a] text-white text-[8px] rounded-full flex items-center justify-center font-bold leading-none">{unread}</span>
-                )}
-              </button>
-
-              {/* Profile */}
-              <button
-                onClick={() => navigate("profile")}
-                className="flex items-center gap-2 pl-2 pr-3 py-1 hover:bg-[#faf7f4] transition-colors group ml-1"
-              >
-                <img src={MOCK_ADMIN.avatar} alt={MOCK_ADMIN.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                <div className="text-left hidden md:block">
-                  <p className="text-[11px] font-semibold text-[#1a1a1a] leading-tight group-hover:text-[#d4145a] transition-colors">{MOCK_ADMIN.name.split(" ")[0]}</p>
-                  <p className="text-[9px] text-[#d4145a] tracking-wide leading-tight font-semibold">{MOCK_ADMIN.role}</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="hidden lg:flex items-center justify-between px-6 xl:px-8 py-2.5 bg-[#faf7f4] border-b border-[#ececec]">
-            <div className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase text-[#6e6e6e]">
-              <Shield size={10} className="text-[#d4145a]" strokeWidth={1.5} />
-              <span className="text-[#d4145a] font-semibold">Admin</span>
-              <ChevronRight size={9} />
-              <button onClick={() => navigate("home")} className="hover:text-[#d4145a] transition-colors">Dashboard</button>
-              {active !== "home" && (
-                <>
-                  <ChevronRight size={9} />
-                  <span className="text-[#1a1a1a] font-semibold">{ADMIN_SECTION_LABELS[active]}</span>
-                </>
+            {/* Bell */}
+            <button
+              onClick={() => navigate("notifications")}
+              className={`relative p-2 transition-colors ${active === "notifications" ? "text-[#d4145a]" : "text-[#6e6e6e] hover:text-[#d4145a]"}`}
+            >
+              <Bell size={17} strokeWidth={1.5} />
+              {unread > 0 && (
+                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#d4145a] text-white text-[8px] rounded-full flex items-center justify-center font-bold leading-none">{unread}</span>
               )}
-            </div>
-            <button onClick={onLogout} className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] uppercase text-[#6e6e6e] hover:text-[#d4145a] transition-colors">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-              Back to Store
+            </button>
+
+            {/* Profile */}
+            <button
+              onClick={() => navigate("profile")}
+              className="flex items-center gap-2 pl-2 pr-3 py-1 hover:bg-[#faf7f4] transition-colors group ml-1"
+            >
+              <img src={adminAvatar} alt={adminName} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+              <div className="text-left hidden md:block">
+                <p className="text-[11px] font-semibold text-[#1a1a1a] leading-tight group-hover:text-[#d4145a] transition-colors">{adminName.split(" ")[0]}</p>
+                <p className="text-[9px] text-[#d4145a] tracking-wide leading-tight font-semibold">Admin</p>
+              </div>
             </button>
           </div>
+        </div>
 
-          {/* Section content */}
-          <div className="p-4 md:p-6 xl:p-8">
-            {renderSection()}
+        {/* Breadcrumb */}
+        <div className="hidden lg:flex items-center justify-between px-6 xl:px-8 py-2.5 bg-[#faf7f4] border-b border-[#ececec] flex-shrink-0">
+          <div className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase text-[#6e6e6e]">
+            <Shield size={10} className="text-[#d4145a]" strokeWidth={1.5} />
+            <span className="text-[#d4145a] font-semibold">Admin</span>
+            <ChevronRight size={9} />
+            <button onClick={() => navigate("home")} className="hover:text-[#d4145a] transition-colors">Dashboard</button>
+            {active !== "home" && (
+              <>
+                <ChevronRight size={9} />
+                <span className="text-[#1a1a1a] font-semibold">{ADMIN_SECTION_LABELS[active]}</span>
+              </>
+            )}
           </div>
-        </main>
-      </div>
+          <button onClick={onLogout} className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] uppercase text-[#6e6e6e] hover:text-[#d4145a] transition-colors">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to Store
+          </button>
+        </div>
+
+        {/* Section content */}
+        <div className="p-4 md:p-6 xl:p-8 flex-1">
+          {renderSection()}
+        </div>
+      </main>
 
       {/* Logout Modal */}
       {showLogoutModal && (

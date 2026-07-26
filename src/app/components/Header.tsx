@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import {
-  Search, Heart, User, ShoppingBag, Menu, X, ChevronDown,
+  Search, Heart, User, ShoppingBag, Menu, X, ChevronDown, LayoutGrid, LogOut
 } from "lucide-react";
 import image_image_1 from "@/imports/image-1.png";
 import logoImg from "@/imports/image.png";
@@ -8,6 +9,8 @@ import { NAV_ITEMS } from "../data";
 import type { Page } from "../data";
 import { categoryService } from "../services/category.service";
 import { Category, SubCategory } from "../types/product.types";
+import { useAuth } from "../context/AuthContext";
+import { getDashboardPathForRole } from "../routes/GuestRoute";
 
 interface Props {
   announcementVisible: boolean;
@@ -45,6 +48,31 @@ export default function Header({
   setCurrentPage, setCurrentProduct, setShowAuth,
 }: Props) {
   const megaRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { user, isAuthenticated, role, roleId, logout } = useAuth();
+
+  const isLogged = isAuthenticated || Boolean(user?.id);
+  const userName = user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Account";
+  const userEmail = user?.email || "";
+  const userAvatar = user?.avatar || user?.profile_image;
+
+  const handleMobileDashboard = () => {
+    setMobileOpen(false);
+    const dashPath = getDashboardPathForRole(roleId || user?.role_id, role || user?.role);
+    navigate(dashPath);
+  };
+
+  const handleMobileLogout = async () => {
+    setMobileOpen(false);
+    await logout();
+    navigate("/");
+  };
+
+  const handleMobileSignIn = () => {
+    setMobileOpen(false);
+    navigate("/login");
+  };
+
   const [liveCategories, setLiveCategories] = useState<Category[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
 
@@ -152,9 +180,14 @@ export default function Header({
             </button>
             <button
               onClick={() => { setAccountOpen(o => !o); setCartOpen(() => false); setWishOpen(() => false); }}
-              className={`hidden md:flex transition-colors ${accountOpen || showAuth ? "text-[#d4145a]" : "text-[#6e6e6e] hover:text-[#d4145a]"}`}
+              className={`hidden md:flex transition-colors items-center gap-1.5 ${accountOpen || showAuth ? "text-[#d4145a]" : "text-[#6e6e6e] hover:text-[#d4145a]"}`}
+              title={isLogged ? userName : "Account"}
             >
-              <User size={20} strokeWidth={1.5} />
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName} className="w-5 h-5 rounded-full object-cover border border-[#ececec]" />
+              ) : (
+                <User size={20} strokeWidth={1.5} />
+              )}
             </button>
             <button
               onClick={() => { setCartOpen(o => !o); setWishOpen(() => false); setAccountOpen(() => false); }}
@@ -288,11 +321,33 @@ export default function Header({
                 </div>
               ))}
             </nav>
-            <div className="p-5 space-y-3">
-              <button className="w-full flex items-center gap-3 text-sm text-[#6e6e6e]">
-                <User size={16} /> Account
-              </button>
-              <button className="w-full flex items-center gap-3 text-sm text-[#6e6e6e]">
+            <div className="p-5 space-y-3 border-t border-[#ececec]">
+              {isLogged ? (
+                <>
+                  <div className="flex items-center gap-3 pb-2 border-b border-[#ececec]">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt={userName} className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <User size={18} className="text-[#d4145a]" />
+                    )}
+                    <div className="overflow-hidden">
+                      <p className="text-xs font-semibold text-[#1a1a1a] truncate">{userName}</p>
+                      <p className="text-[10px] text-[#9e9e9e] truncate">{userEmail}</p>
+                    </div>
+                  </div>
+                  <button onClick={handleMobileDashboard} className="w-full flex items-center gap-3 text-sm text-[#1a1a1a] font-medium py-1">
+                    <LayoutGrid size={16} /> Dashboard
+                  </button>
+                  <button onClick={handleMobileLogout} className="w-full flex items-center gap-3 text-sm text-red-600 font-medium py-1">
+                    <LogOut size={16} /> Logout
+                  </button>
+                </>
+              ) : (
+                <button onClick={handleMobileSignIn} className="w-full flex items-center gap-3 text-sm text-[#6e6e6e]">
+                  <User size={16} /> Sign In
+                </button>
+              )}
+              <button onClick={() => { setMobileOpen(false); setWishOpen(true as any); }} className="w-full flex items-center gap-3 text-sm text-[#6e6e6e]">
                 <Heart size={16} /> Wishlist ({wishCount})
               </button>
             </div>

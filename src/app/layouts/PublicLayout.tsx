@@ -5,6 +5,8 @@ import Footer from "../components/Footer";
 import MobileBottomNav from "../components/MobileBottomNav";
 import { CartPanel, WishlistPanel, AccountDropdown } from "../components/Panels";
 import type { Page } from "../data";
+import { useAuth } from "../context/AuthContext";
+import { getDashboardPathForRole } from "../routes/GuestRoute";
 
 export interface PublicOutletCtx {
   cartCount: number;
@@ -17,6 +19,9 @@ const toSlug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
 export default function PublicLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAuthenticated, role, roleId } = useAuth();
+
+  const isLogged = isAuthenticated || Boolean(user?.id);
 
   const [announcementVisible, setAnnouncementVisible] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -95,7 +100,7 @@ export default function PublicLayout() {
           setMobileOpen={setMobileOpen}
           setCurrentPage={handleSetCurrentPage}
           setCurrentProduct={() => navigate("/")}
-          setShowAuth={(v) => v && navigate("/login")}
+          setShowAuth={(v) => v && navigate(isLogged ? getDashboardPathForRole(roleId || user?.role_id, role || user?.role) : "/login")}
         />
       )}
 
@@ -117,7 +122,15 @@ export default function PublicLayout() {
           onCategories={() => { setMobileOpen(true); setCartOpen(false); setWishOpen(false); }}
           onWishlist={() => { setWishOpen(o => !o); setCartOpen(false); setMobileOpen(false); }}
           onCart={() => { setCartOpen(o => !o); setWishOpen(false); setMobileOpen(false); }}
-          onProfile={() => { navigate("/login"); closeAllPanels(); }}
+          onProfile={() => {
+            if (isLogged) {
+              const dashPath = getDashboardPathForRole(roleId || user?.role_id, role || user?.role);
+              navigate(dashPath);
+            } else {
+              navigate("/login");
+            }
+            closeAllPanels();
+          }}
         />
       )}
 
@@ -139,7 +152,15 @@ export default function PublicLayout() {
       {accountOpen && (
         <AccountDropdown
           onClose={() => setAccountOpen(false)}
-          onSignIn={() => { navigate("/login"); setAccountOpen(false); }}
+          onSignIn={() => {
+            if (isLogged) {
+              const dashPath = getDashboardPathForRole(roleId || user?.role_id, role || user?.role);
+              navigate(dashPath);
+            } else {
+              navigate("/login");
+            }
+            setAccountOpen(false);
+          }}
         />
       )}
     </div>

@@ -8,7 +8,8 @@ export interface ApiResponse<T = any> {
 export interface PaginationMeta {
   page: number;
   limit: number;
-  total: number;
+  total?: number;
+  total_items?: number;
   totalPages?: number;
   total_pages?: number;
 }
@@ -22,7 +23,9 @@ export interface PaginatedResponse<T = any> {
   success: boolean;
   message?: string;
   data: PaginatedData<T> | T[];
+  items?: T[];
   pagination?: PaginationMeta;
+  [key: string]: any;
 }
 
 export interface ValidationErrorDetail {

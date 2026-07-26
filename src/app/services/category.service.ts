@@ -44,6 +44,30 @@ export const categoryService = {
   },
 
   /**
+   * Create category (Admin)
+   */
+  async createCategory(payload: { name: string; description?: string }): Promise<ApiResponse<Category>> {
+    const response = await apiClient.post(API_ENDPOINTS.CATEGORIES.BASE, payload);
+    return response.data;
+  },
+
+  /**
+   * Update category (Admin)
+   */
+  async updateCategory(id: string | number, payload: { name?: string; status?: string }): Promise<ApiResponse<Category>> {
+    const response = await apiClient.put(API_ENDPOINTS.CATEGORIES.BY_ID(id), payload);
+    return response.data;
+  },
+
+  /**
+   * Delete category (Admin)
+   */
+  async deleteCategory(id: string | number): Promise<ApiResponse> {
+    const response = await apiClient.delete(API_ENDPOINTS.CATEGORIES.BY_ID(id));
+    return response.data;
+  },
+
+  /**
    * Fetch all sub-categories (with optional query filters like category_id, limit=100)
    */
   async getSubCategories(params?: Record<string, any>): Promise<SubCategory[]> {
@@ -87,7 +111,6 @@ export const categoryService = {
     }
 
     try {
-      // 2 parallel HTTP calls instead of 13+ sequential/individual calls
       const [categories, allSubCategories] = await Promise.all([
         this.getCategories(forceRefresh),
         this.getSubCategories({ limit: 100 })
@@ -95,7 +118,6 @@ export const categoryService = {
 
       if (!categories || categories.length === 0) return [];
 
-      // Group sub-categories by category_id in memory
       const subMap = new Map<number, SubCategory[]>();
       allSubCategories.forEach((sub) => {
         const catId = Number(sub.category_id);
@@ -129,6 +151,16 @@ export const categoryService = {
     }
   },
 
+  async createBrand(payload: { name: string; logo?: string; description?: string }): Promise<ApiResponse<Brand>> {
+    const response = await apiClient.post(API_ENDPOINTS.BRANDS.BASE, payload);
+    return response.data;
+  },
+
+  async deleteBrand(id: string | number): Promise<ApiResponse> {
+    const response = await apiClient.delete(API_ENDPOINTS.BRANDS.BY_ID(id));
+    return response.data;
+  },
+
   async getCollections(): Promise<Collection[]> {
     try {
       const response = await apiClient.get<ApiResponse<Collection[]>>(API_ENDPOINTS.COLLECTIONS.BASE);
@@ -137,5 +169,15 @@ export const categoryService = {
       console.error("[categoryService.getCollections ERROR]", error);
       return [];
     }
+  },
+
+  async createCollection(payload: { name: string; description?: string }): Promise<ApiResponse<Collection>> {
+    const response = await apiClient.post(API_ENDPOINTS.COLLECTIONS.BASE, payload);
+    return response.data;
+  },
+
+  async deleteCollection(id: string | number): Promise<ApiResponse> {
+    const response = await apiClient.delete(API_ENDPOINTS.COLLECTIONS.BY_ID(id));
+    return response.data;
   },
 };

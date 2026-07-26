@@ -1,28 +1,74 @@
-import { useState } from "react";
-import { Search, CheckCircle, XCircle, Eye, Trash2 } from "lucide-react";
-import { ADMIN_PRODUCTS, fmt } from "./adminData";
+import { useState, useEffect } from "react";
+import { Search, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { fmt } from "./adminData";
+import { adminService } from "../../services/admin.service";
+import { extractErrorMessage } from "../../utils/errorExtractor";
+import { toast } from "sonner";
 
 const statusStyle = (s: string) => {
-  if (s === "Approved") return "bg-green-50 text-green-700";
-  if (s === "Pending")  return "bg-amber-50 text-amber-700";
-  if (s === "Rejected") return "bg-red-50 text-red-600";
-  return "";
+  const lower = (s || "").toLowerCase();
+  if (lower === "approved") return "bg-green-50 text-green-700";
+  if (lower === "pending")  return "bg-amber-50 text-amber-700";
+  if (lower === "rejected") return "bg-red-50 text-red-600";
+  return "bg-gray-50 text-gray-600";
 };
 
 export default function AdminProducts() {
+  const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
-  const [statuses, setStatuses] = useState<Record<string, string>>(
-    Object.fromEntries(ADMIN_PRODUCTS.map(p => [p.id, p.status]))
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | number | null>(null);
 
-  const update = (id: string, val: string) => setStatuses(prev => ({ ...prev, [id]: val }));
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: any = { limit: 50 };
+      if (search) params.search = search;
+      if (filter !== "All") params.status = filter.toLowerCase();
 
-  const filtered = ADMIN_PRODUCTS.filter(p => {
-    if (filter !== "All" && statuses[p.id] !== filter) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+      const response: any = await adminService.getProducts(params);
+      const rawData = response.data || response;
+      const itemsList = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData?.items)
+        ? rawData.items
+        : Array.isArray(rawData?.data)
+        ? rawData.data
+        : [];
+      setProducts(itemsList);
+    } catch (err: any) {
+      const msg = extractErrorMessage(err, "Failed to load products list.");
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProducts();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, filter]);
+
+  const handleApproval = async (productId: string | number, nextStatus: string) => {
+    setUpdatingId(productId);
+    try {
+      await adminService.updateProductApproval(productId, nextStatus.toLowerCase());
+      toast.success(`Product status updated to ${nextStatus}.`);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, status: nextStatus.toLowerCase() } : p))
+      );
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, "Failed to update product status."));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div>
@@ -34,57 +80,83 @@ export default function AdminProducts() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search size={13} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products…" className="border border-[#ececec] pl-8 pr-4 py-2.5 text-xs focus:outline-none focus:border-[#d4145a] bg-white w-52" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products…"
+              className="border border-[#ececec] pl-8 pr-4 py-2.5 text-xs focus:outline-none focus:border-[#d4145a] bg-white w-52"
+            />
           </div>
-          <select value={filter} onChange={e => setFilter(e.target.value)} className="border border-[#ececec] px-3 py-2.5 text-xs text-[#6e6e6e] focus:outline-none focus:border-[#d4145a] bg-white">
-            {["All", "Approved", "Pending", "Rejected"].map(s => <option key={s}>{s}</option>)}
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="border border-[#ececec] px-3 py-2.5 text-xs text-[#6e6e6e] focus:outline-none focus:border-[#d4145a] bg-white">
+            {["All", "Approved", "Pending", "Rejected"].map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="bg-white border border-[#ececec] overflow-x-auto">
-        <table className="w-full min-w-[750px]">
-          <thead>
-            <tr className="border-b border-[#ececec]">
-              {["Product", "SKU", "Seller", "Category", "Price", "Stock", "Status", "Actions"].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-[9px] tracking-[0.15em] uppercase text-[#9e9e9e] font-semibold">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => {
-              const status = statuses[p.id];
-              return (
-                <tr key={p.id} className="border-b border-[#ececec] hover:bg-[#faf7f4] transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={p.img} alt={p.name} className="w-9 h-11 object-cover bg-[#faf7f4] flex-shrink-0" />
-                      <span className="text-xs font-medium text-[#1a1a1a]">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[10px] text-[#9e9e9e] font-mono tracking-wide">{p.sku}</td>
-                  <td className="px-4 py-3 text-xs text-[#6e6e6e]">{p.seller}</td>
-                  <td className="px-4 py-3 text-xs text-[#6e6e6e]">{p.category}</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-[#1a1a1a]">{fmt(p.price)}</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-[#1a1a1a]">{p.stock}</td>
-                  <td className="px-4 py-3"><span className={`text-[9px] tracking-[0.08em] uppercase px-2 py-1 font-semibold ${statusStyle(status)}`}>{status}</span></td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button className="p-1.5 text-[#6e6e6e] hover:text-blue-600 transition-colors" title="View"><Eye size={13} strokeWidth={1.5} /></button>
-                      {status === "Pending" && <>
-                        <button onClick={() => update(p.id, "Approved")} className="p-1.5 text-[#6e6e6e] hover:text-green-600 transition-colors" title="Approve"><CheckCircle size={13} strokeWidth={1.5} /></button>
-                        <button onClick={() => update(p.id, "Rejected")} className="p-1.5 text-[#6e6e6e] hover:text-red-500 transition-colors" title="Reject"><XCircle size={13} strokeWidth={1.5} /></button>
-                      </>}
-                      <button className="p-1.5 text-[#6e6e6e] hover:text-red-500 transition-colors" title="Delete"><Trash2 size={13} strokeWidth={1.5} /></button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filtered.length === 0 && <div className="py-12 text-center text-xs text-[#9e9e9e]">No products found.</div>}
-      </div>
+      {loading ? (
+        <div className="bg-white border border-[#ececec] p-12 text-center animate-pulse">
+          <p className="text-xs text-[#9e9e9e] uppercase tracking-widest">Loading products data…</p>
+        </div>
+      ) : error ? (
+        <div className="bg-white border border-[#ececec] p-12 text-center">
+          <p className="text-sm text-red-600 font-light mb-4">{error}</p>
+          <button onClick={fetchProducts} className="px-5 py-2.5 bg-[#1a1a1a] text-white text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] flex items-center gap-2 mx-auto">
+            <RefreshCw size={13} /> Retry Loading
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white border border-[#ececec] overflow-x-auto">
+          <table className="w-full min-w-[750px]">
+            <thead>
+              <tr className="border-b border-[#ececec]">
+                {["Product", "SKU", "Seller", "Category", "Price", "Stock", "Status", "Actions"].map((h) => (
+                  <th key={h} className="text-left px-4 py-3 text-[9px] tracking-[0.15em] uppercase text-[#9e9e9e] font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => {
+                const statusRaw = p.status || "Approved";
+                const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+                const isUpdating = updatingId === p.id;
+                const pImg = p.thumbnail || p.image || p.img || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&h=120&fit=crop";
+
+                return (
+                  <tr key={p.id} className="border-b border-[#ececec] hover:bg-[#faf7f4] transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <img src={pImg} alt={p.name} className="w-9 h-11 object-cover bg-[#faf7f4] flex-shrink-0" />
+                        <span className="text-xs font-medium text-[#1a1a1a]">{p.name || p.product_name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[10px] text-[#9e9e9e] font-mono tracking-wide">{p.sku || `MND-${p.id}`}</td>
+                    <td className="px-4 py-3 text-xs text-[#6e6e6e]">{p.seller_name || p.seller || "Mandola Direct"}</td>
+                    <td className="px-4 py-3 text-xs text-[#6e6e6e]">{p.category_name || p.category || "General"}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-[#1a1a1a]">{fmt(p.sale_price || p.price || p.base_price || 0)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-[#1a1a1a]">{p.stock || p.quantity || 0}</td>
+                    <td className="px-4 py-3"><span className={`text-[9px] tracking-[0.08em] uppercase px-2 py-1 font-semibold ${statusStyle(statusFormatted)}`}>{statusFormatted}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        {statusRaw.toLowerCase() === "pending" && (
+                          <>
+                            <button onClick={() => handleApproval(p.id, "approved")} disabled={isUpdating} className="p-1.5 text-[#6e6e6e] hover:text-green-600 transition-colors" title="Approve">
+                              {isUpdating ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle size={13} strokeWidth={1.5} />}
+                            </button>
+                            <button onClick={() => handleApproval(p.id, "rejected")} disabled={isUpdating} className="p-1.5 text-[#6e6e6e] hover:text-red-500 transition-colors" title="Reject">
+                              <XCircle size={13} strokeWidth={1.5} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {products.length === 0 && <div className="py-12 text-center text-xs text-[#9e9e9e]">No products found matching selection.</div>}
+        </div>
+      )}
     </div>
   );
 }

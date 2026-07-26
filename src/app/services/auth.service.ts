@@ -11,6 +11,10 @@ export const authService = {
 
   async register(payload: RegisterPayload): Promise<ApiResponse> {
     const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, payload);
+    const devOtp = response.data?.data?.dev_otp || response.data?.dev_otp;
+    if (devOtp) {
+      console.log(`%c 🔑 [DEV OTP CODE]: ${devOtp} `, "background: #222; color: #bada55; font-size: 14px; font-weight: bold;");
+    }
     return response.data;
   },
 
@@ -23,6 +27,10 @@ export const authService = {
 
   async sendOTP(identifier: string, type = "verify_email"): Promise<ApiResponse> {
     const response = await apiClient.post(API_ENDPOINTS.AUTH.SEND_OTP, { identifier, type });
+    const devOtp = response.data?.data?.dev_otp || response.data?.dev_otp;
+    if (devOtp) {
+      console.log(`%c 🔑 [DEV OTP CODE]: ${devOtp} `, "background: #222; color: #bada55; font-size: 14px; font-weight: bold;");
+    }
     return response.data;
   },
 

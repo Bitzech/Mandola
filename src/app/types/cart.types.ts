@@ -13,17 +13,21 @@ export interface CartItem {
 
 export interface CartSummary {
   items: CartItem[];
-  item_count: number;
+  item_count?: number;
+  total_items?: number;
+  count?: number;
   subtotal: number;
   discount: number;
   tax: number;
   shipping: number;
   grand_total: number;
+  [key: string]: any;
 }
 
 export interface AddToCartInput {
-  product_id: number;
+  product_id?: number;
   variant_id?: number;
+  product_variant_id?: number;
   quantity: number;
 }
 
