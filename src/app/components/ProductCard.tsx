@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Heart, X } from "lucide-react";
 import { PRODUCTS } from "../data";
+import { useWishlist } from "../context/WishlistContext";
 
 type Product = typeof PRODUCTS[0];
 
 export default function ProductCard({ p }: { p: Product }) {
   const [hovered, setHovered] = useState(false);
-  const [wished, setWished] = useState(false);
   const [quickView, setQuickView] = useState(false);
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
+  const isWished = isWishlisted(p.id);
   const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
 
   return (
@@ -33,13 +35,13 @@ export default function ProductCard({ p }: { p: Product }) {
             -{discount}%
           </span>
           <button
-            onClick={() => setWished(!wished)}
-            className="absolute top-3 right-3 p-1.5 bg-white rounded-full shadow-sm"
+            onClick={() => toggleWishlist(p)}
+            className="absolute top-3 right-3 p-1.5 bg-white rounded-full shadow-sm hover:scale-110 transition-transform"
           >
             <Heart
               size={14}
               strokeWidth={1.5}
-              className={wished ? "fill-[#d4145a] text-[#d4145a]" : "text-[#6e6e6e]"}
+              className={isWished ? "fill-[#d4145a] text-[#d4145a]" : "text-[#6e6e6e]"}
             />
           </button>
           <div

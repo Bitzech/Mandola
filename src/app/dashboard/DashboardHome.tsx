@@ -41,7 +41,7 @@ export default function DashboardHome({ onNavigate }: { onNavigate: NavigateFn }
       }
 
       if (wishlistRes.status === "fulfilled") {
-        const wlData = wishlistRes.value.data || wishlistRes.value.items || wishlistRes.value;
+        const wlData = wishlistRes.value;
         setWishlistItems(Array.isArray(wlData) ? wlData : []);
       }
 

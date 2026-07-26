@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useWishlist } from "../context/WishlistContext";
 import { Heart, Loader2 } from "lucide-react";
 import { ALL_PRODUCTS } from "../data";
 import type { Page, ProductType } from "../data";
@@ -18,7 +19,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
   const [selectedBrand, setSelectedBrand] = useState("all");
   const [selectedSize, setSelectedSize] = useState("all");
   const [selectedColor, setSelectedColor] = useState("all");
-  const [wished, setWished] = useState<Set<number>>(new Set());
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
@@ -259,7 +260,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-7">
             {sorted.map(p => {
-              const isWish = wished.has(p.id);
+              const isWish = isWishlisted(p.id);
               return (
                 <div
                   key={p.id}
@@ -287,11 +288,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
                     <button
                       onClick={e => {
                         e.stopPropagation();
-                        setWished(prev => {
-                          const next = new Set(prev);
-                          if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
-                          return next;
-                        });
+                        toggleWishlist(p);
                       }}
                       className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-[#1a1a1a] hover:text-[#d4145a] transition-colors shadow-sm"
                     >

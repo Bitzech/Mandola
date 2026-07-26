@@ -10,6 +10,7 @@ import type { ProductType } from "../data";
 import { u } from "../data";
 import { categoryService } from "../services/category.service";
 import { Size, Color } from "../types/product.types";
+import { useWishlist } from "../context/WishlistContext";
 
 interface Props {
   product: ProductType;
@@ -148,6 +149,8 @@ function ProductSlider({
 }
 
 export default function ProductDetailPage({ product, onBack, onProductClick, onAddToBag }: Props) {
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const isWished = isWishlisted(product.id);
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState(product.colors[0]);
   const [qty, setQty] = useState(1);
@@ -512,11 +515,11 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
                 {added ? "Added to Bag!" : "Add to Bag"}
               </button>
               <button
-                onClick={() => setWished(w => !w)}
-                className={`w-12 h-12 border-2 flex items-center justify-center transition-all duration-200 ${wished ? "border-[#d4145a] bg-[#fce8ef]" : "border-[#ececec] hover:border-[#d4145a]"}`}
+                onClick={() => toggleWishlist(product)}
+                className={`w-12 h-12 border-2 flex items-center justify-center transition-all duration-200 ${isWished ? "border-[#d4145a] bg-[#fce8ef]" : "border-[#ececec] hover:border-[#d4145a]"}`}
                 aria-label="Wishlist"
               >
-                <Heart size={17} strokeWidth={1.5} className={`transition-all ${wished ? "fill-[#d4145a] text-[#d4145a] scale-110" : "text-[#6e6e6e]"}`} />
+                <Heart size={17} strokeWidth={1.5} className={`transition-all ${isWished ? "fill-[#d4145a] text-[#d4145a] scale-110" : "text-[#6e6e6e]"}`} />
               </button>
               <button
                 onClick={() => setShowShare(true)}

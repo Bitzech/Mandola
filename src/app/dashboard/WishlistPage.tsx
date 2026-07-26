@@ -1,48 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Heart, ShoppingBag, X, RefreshCw } from "lucide-react";
+import { useWishlist } from "../context/WishlistContext";
 import { wishlistService } from "../services/wishlist.service";
 import { cartService } from "../services/cart.service";
 import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 
 export default function WishlistPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const { items, loading, removeFromWishlist, refreshWishlist } = useWishlist();
   const [addingToCart, setAddingToCart] = useState<Set<number>>(new Set());
   const [removingId, setRemovingId] = useState<number | null>(null);
-
-  const fetchWishlist = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await wishlistService.getWishlist();
-      const data = response.data || response.items || response;
-      if (Array.isArray(data)) {
-        setItems(data);
-      } else {
-        setItems([]);
-      }
-    } catch (err: any) {
-      const msg = extractErrorMessage(err, "Failed to load wishlist items.");
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchWishlist();
-  }, []);
 
   const handleRemove = async (productId: number) => {
     setRemovingId(productId);
     try {
-      await wishlistService.removeFromWishlist(productId);
-      setItems((prev) => prev.filter((p) => (p.product_id || p.id) !== productId));
-      toast.success("Removed from wishlist.");
+      await removeFromWishlist(productId);
     } catch (err: any) {
       toast.error(extractErrorMessage(err, "Failed to remove item from wishlist."));
     } finally {
@@ -62,8 +34,7 @@ export default function WishlistPage() {
       });
 
       // Also remove from wishlist upon adding to cart
-      await wishlistService.removeFromWishlist(productId);
-      setItems((prev) => prev.filter((p) => (p.product_id || p.id) !== productId));
+      await removeFromWishlist(productId);
 
       toast.success("Item moved to shopping bag!");
     } catch (err: any) {
@@ -95,13 +66,6 @@ export default function WishlistPage() {
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-white border border-[#ececec] h-72 bg-slate-100" />
           ))}
-        </div>
-      ) : error ? (
-        <div className="bg-white border border-[#ececec] p-16 text-center">
-          <p className="text-sm text-red-600 font-light mb-4">{error}</p>
-          <button onClick={fetchWishlist} className="px-5 py-2.5 bg-[#1a1a1a] text-white text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] flex items-center gap-2 mx-auto">
-            <RefreshCw size={13} /> Retry Loading
-          </button>
         </div>
       ) : items.length === 0 ? (
         <div className="bg-white border border-[#ececec] p-16 text-center">

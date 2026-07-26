@@ -2,6 +2,7 @@ import { X, ArrowRight, User, LogOut, LayoutGrid } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PRODUCTS } from "../data";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
 import { getDashboardPathForRole } from "../routes/GuestRoute";
 
 interface CartPanelProps {
@@ -58,6 +59,8 @@ interface WishlistPanelProps {
 }
 
 export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
+  const { items, removeFromWishlist } = useWishlist();
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
@@ -67,19 +70,34 @@ export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
           <button onClick={onClose} className="text-[#6e6e6e] hover:text-[#1a1a1a]"><X size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {PRODUCTS.map(p => (
-            <div key={p.id} className="flex gap-4">
-              <img src={p.img1} alt={p.name} className="w-20 object-cover flex-shrink-0 bg-[#faf7f4]" style={{ height: "6.5rem" }} />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1">{p.name}</p>
-                <p className="text-sm font-semibold mb-3">₹{p.price.toLocaleString("en-IN")}</p>
-                <button className="text-[10px] tracking-[0.15em] uppercase bg-[#1a1a1a] text-white px-4 py-1.5 hover:bg-[#d4145a] transition-colors">
-                  Move to Bag
-                </button>
-              </div>
-              <button className="text-[#6e6e6e] hover:text-[#d4145a] self-start mt-1"><X size={14} /></button>
+          {items.length === 0 ? (
+            <div className="py-12 text-center text-xs text-[#9e9e9e] font-light">
+              Your wishlist is empty.
             </div>
-          ))}
+          ) : (
+            items.map((p) => {
+              const pId = Number(p.product_id || p.id);
+              const name = p.product_name || p.name || "Fashion Style";
+              const price = Number(p.sale_price || p.base_price || p.price) || 0;
+              const img = p.thumbnail || p.product_image || p.img1 || p.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";
+
+              return (
+                <div key={pId} className="flex gap-4 border-b border-[#f5f5f5] pb-4">
+                  <img src={img} alt={name} className="w-20 object-cover flex-shrink-0 bg-[#faf7f4] rounded-sm" style={{ height: "6.5rem" }} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1 line-clamp-1">{name}</p>
+                    <p className="text-sm font-semibold mb-3">₹{price.toLocaleString("en-IN")}</p>
+                    <button onClick={onClose} className="text-[10px] tracking-[0.15em] uppercase bg-[#1a1a1a] text-white px-4 py-1.5 hover:bg-[#d4145a] transition-colors">
+                      View Details
+                    </button>
+                  </div>
+                  <button onClick={() => removeFromWishlist(pId)} className="text-[#6e6e6e] hover:text-[#d4145a] self-start mt-1">
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
