@@ -8,6 +8,12 @@ export function extractErrorMessage(error: any, fallbackMessage = "An unexpected
 
   if (error instanceof AxiosError || error.isAxiosError) {
     const serverResponse = error.response?.data as ApiErrorPayload | undefined;
+    if (serverResponse?.errors && Array.isArray(serverResponse.errors) && serverResponse.errors.length > 0) {
+      const detailMsgs = serverResponse.errors.map((e: ValidationErrorDetail) => e.message).filter(Boolean);
+      if (detailMsgs.length > 0) {
+        return detailMsgs.join(" ");
+      }
+    }
     if (serverResponse?.message) {
       return serverResponse.message;
     }

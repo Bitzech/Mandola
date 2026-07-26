@@ -1,5 +1,8 @@
-import { X, ArrowRight } from "lucide-react";
+import { X, ArrowRight, User, LogOut, LayoutGrid } from "lucide-react";
+import { useNavigate } from "react-router";
 import { PRODUCTS } from "../data";
+import { useAuth } from "../context/AuthContext";
+import { getDashboardPathForRole } from "../routes/GuestRoute";
 
 interface CartPanelProps {
   cartCount: number;
@@ -89,22 +92,90 @@ interface AccountDropdownProps {
 }
 
 export function AccountDropdown({ onClose, onSignIn }: AccountDropdownProps) {
+  const { user, isAuthenticated, role, roleId, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const isLogged = isAuthenticated || Boolean(user?.id);
+
+  const handleLogout = async () => {
+    onClose();
+    await logout();
+    navigate("/");
+  };
+
+  const handleDashboard = () => {
+    onClose();
+    const dashPath = getDashboardPathForRole(roleId || user?.role_id, role || user?.role);
+    navigate(dashPath);
+  };
+
+  const userName = user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Account";
+  const userEmail = user?.email || "";
+  const userAvatar = user?.avatar || user?.profile_image;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end items-start pt-[72px]" onClick={onClose}>
       <div className="relative mr-6 md:mr-12 w-64 bg-white border border-[#ececec] shadow-xl py-2" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-[#ececec]">
-          <p className="text-xs text-[#6e6e6e] tracking-wide mb-3">Welcome back</p>
-          <button onClick={onSignIn} className="w-full bg-[#1a1a1a] text-white py-2.5 text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors mb-2">
-            Sign In
+        {isLogged ? (
+          <div className="px-5 py-4 border-b border-[#ececec]">
+            <div className="flex items-center gap-3 mb-3">
+              {userAvatar ? (
+                <img src={userAvatar} alt={userName} className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-[#ececec]" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-[#fce8ef] text-[#d4145a] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                  <User size={16} />
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <p className="text-xs font-semibold text-[#1a1a1a] truncate">{userName}</p>
+                <p className="text-[10px] text-[#9e9e9e] truncate">{userEmail}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleDashboard}
+              className="w-full bg-[#1a1a1a] text-white py-2.5 text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors mb-2 flex items-center justify-center gap-2"
+            >
+              <LayoutGrid size={13} /> Dashboard
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full border border-[#ececec] text-[#6e6e6e] py-2 text-[10px] tracking-[0.15em] uppercase hover:border-red-500 hover:text-red-600 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <LogOut size={13} /> Logout
+            </button>
+          </div>
+        ) : (
+          <div className="px-5 py-4 border-b border-[#ececec]">
+            <p className="text-xs text-[#6e6e6e] tracking-wide mb-3">Welcome back</p>
+            <button onClick={onSignIn} className="w-full bg-[#1a1a1a] text-white py-2.5 text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors mb-2">
+              Sign In
+            </button>
+            <button onClick={onSignIn} className="w-full border border-[#ececec] text-[#1a1a1a] py-2.5 text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
+              Create Account
+            </button>
+          </div>
+        )}
+
+        {[
+          { label: "My Orders", path: isLogged ? "/customer/orders" : null },
+          { label: "My Wishlist", path: isLogged ? "/customer/wishlist" : null },
+          { label: "My Addresses", path: isLogged ? "/customer/addresses" : null },
+          { label: "Help & Support", path: null },
+        ].map((item) => (
+          <button
+            key={item.label}
+            onClick={() => {
+              onClose();
+              if (item.path) {
+                navigate(item.path);
+              } else if (!isLogged && item.label !== "Help & Support") {
+                onSignIn();
+              }
+            }}
+            className="w-full flex items-center justify-between px-5 py-3 text-xs text-[#1a1a1a] hover:text-[#d4145a] hover:bg-[#faf7f4] transition-colors tracking-wide text-left"
+          >
+            {item.label} <ArrowRight size={12} />
           </button>
-          <button onClick={onSignIn} className="w-full border border-[#ececec] text-[#1a1a1a] py-2.5 text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
-            Create Account
-          </button>
-        </div>
-        {["My Orders", "My Wishlist", "My Addresses", "Help & Support"].map(item => (
-          <a key={item} href="#" className="flex items-center justify-between px-5 py-3 text-xs text-[#1a1a1a] hover:text-[#d4145a] hover:bg-[#faf7f4] transition-colors tracking-wide">
-            {item} <ArrowRight size={12} />
-          </a>
         ))}
       </div>
     </div>

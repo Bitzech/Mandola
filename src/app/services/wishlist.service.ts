@@ -5,7 +5,7 @@ import { ApiResponse } from "../types/api.types";
 
 export const wishlistService = {
   async getWishlist(): Promise<ApiResponse<Product[]>> {
-    const response = await apiClient.get(API_ENDPOINTS.WISHLIST.ITEMS);
+    const response = await apiClient.get(API_ENDPOINTS.WISHLIST.BASE);
     return response.data;
   },
 

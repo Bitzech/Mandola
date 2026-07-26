@@ -15,7 +15,7 @@ export const sellerService = {
   },
 
   async getDashboardSummary(): Promise<ApiResponse<SellerDashboardSummary>> {
-    const response = await apiClient.get(API_ENDPOINTS.SELLER.DASHBOARD_SUMMARY);
+    const response = await apiClient.get(API_ENDPOINTS.SELLER.DASHBOARD_OVERVIEW);
     return response.data;
   },
 

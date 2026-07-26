@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Camera, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
@@ -6,12 +6,15 @@ import { extractErrorMessage } from "../utils/errorExtractor";
 
 export default function MyProfile() {
   const { user, updateProfile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [form, setForm] = useState({
     name: user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "",
     email: user?.email || "",
     phone: user?.phone || "",
     gender: user?.gender || "Female",
     dob: user?.dob || "",
+    avatar: user?.avatar || user?.profile_image || "",
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -24,12 +27,31 @@ export default function MyProfile() {
         phone: user.phone || "",
         gender: user.gender || "Female",
         dob: user.dob || "",
+        avatar: user.avatar || user.profile_image || "",
       });
     }
   }, [user]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        setForm((f) => ({ ...f, avatar: base64 }));
+        try {
+          await updateProfile({ avatar: base64, profile_image: base64 });
+          toast.success("Profile photo updated!");
+        } catch (err: any) {
+          toast.error(extractErrorMessage(err, "Failed to update profile photo."));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +69,8 @@ export default function MyProfile() {
         phone: form.phone,
         gender: form.gender,
         dob: form.dob,
+        avatar: form.avatar,
+        profile_image: form.avatar,
       });
 
       const resData = res?.data || res;
@@ -64,7 +88,7 @@ export default function MyProfile() {
     }
   };
 
-  const avatarUrl = user?.avatar || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop";
+  const avatarUrl = form.avatar || user?.avatar || user?.profile_image || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop";
 
   return (
     <div className="max-w-2xl">
@@ -74,18 +98,35 @@ export default function MyProfile() {
         <p className="text-sm text-[#6e6e6e] font-light mt-1">Manage your personal information</p>
       </div>
 
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleAvatarChange}
+        accept="image/*"
+        className="hidden"
+      />
+
       {/* Avatar */}
       <div className="flex items-center gap-6 mb-8 p-6 bg-white border border-[#ececec]">
         <div className="relative">
           <img src={avatarUrl} alt={form.name} className="w-20 h-20 rounded-full object-cover" />
-          <button className="absolute bottom-0 right-0 w-7 h-7 bg-[#d4145a] text-white rounded-full flex items-center justify-center hover:bg-[#b0103e] transition-colors">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute bottom-0 right-0 w-7 h-7 bg-[#d4145a] text-white rounded-full flex items-center justify-center hover:bg-[#b0103e] transition-colors"
+          >
             <Camera size={13} />
           </button>
         </div>
         <div>
           <p className="text-sm font-semibold text-[#1a1a1a]">{form.name || "User Profile"}</p>
           <p className="text-xs text-[#6e6e6e] mt-0.5">{form.email}</p>
-          <button className="mt-2 text-[10px] tracking-[0.15em] uppercase text-[#d4145a] hover:underline transition-colors">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-2 text-[10px] tracking-[0.15em] uppercase text-[#d4145a] hover:underline transition-colors"
+          >
             Change Photo
           </button>
         </div>

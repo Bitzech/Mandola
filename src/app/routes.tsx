@@ -4,6 +4,8 @@ import PublicLayout from "./layouts/PublicLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RoleRoute from "./routes/RoleRoute";
 
+import GuestRoute from "./routes/GuestRoute";
+
 // Lazy-loaded pages
 const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
@@ -33,11 +35,18 @@ export const router = createBrowserRouter([
     children: [
       // ── Public pages ──────────────────────────────────────────
       { index: true, element: wrap(<HomePage />) },
-      { path: "login", element: wrap(<LoginPage />) },
-      { path: "seller/login", element: wrap(<LoginPage />) },
-      { path: "admin/login", element: wrap(<LoginPage />) },
-      { path: "register", element: wrap(<LoginPage />) },
-      { path: "forgot-password", element: wrap(<LoginPage />) },
+
+      // ── Guest routes (Only accessible when NOT logged in) ─────
+      {
+        element: <GuestRoute />,
+        children: [
+          { path: "login", element: wrap(<LoginPage />) },
+          { path: "seller/login", element: wrap(<LoginPage />) },
+          { path: "admin/login", element: wrap(<LoginPage />) },
+          { path: "register", element: wrap(<LoginPage />) },
+          { path: "forgot-password", element: wrap(<LoginPage />) },
+        ],
+      },
       { path: "category/:categorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "category/:categorySlug/:subCategorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "product/:productId", element: wrap(<ProductRoutePage />) },
@@ -68,6 +77,8 @@ export const router = createBrowserRouter([
               { path: "profile", element: wrap(<CustomerDashboard />) },
               { path: "orders", element: wrap(<CustomerDashboard />) },
               { path: "orders/:orderId", element: wrap(<CustomerDashboard />) },
+              { path: "order-details/:orderId", element: wrap(<CustomerDashboard />) },
+              { path: "order-tracking", element: wrap(<CustomerDashboard />) },
               { path: "order-tracking/:orderId", element: wrap(<CustomerDashboard />) },
               { path: "wishlist", element: wrap(<CustomerDashboard />) },
               { path: "cart", element: wrap(<CustomerDashboard />) },
@@ -129,6 +140,8 @@ export const router = createBrowserRouter([
               { path: "orders", element: wrap(<AdminDashboard />) },
               { path: "orders/:orderId", element: wrap(<AdminDashboard />) },
               { path: "payments", element: wrap(<AdminDashboard />) },
+              { path: "wallet", element: wrap(<AdminDashboard />) },
+              { path: "settlements", element: wrap(<AdminDashboard />) },
               { path: "refunds", element: wrap(<AdminDashboard />) },
               { path: "returns", element: wrap(<AdminDashboard />) },
               { path: "shipments", element: wrap(<AdminDashboard />) },

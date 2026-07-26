@@ -8,3 +8,8 @@ export { paymentService } from "./payment.service";
 export { wishlistService } from "./wishlist.service";
 export { sellerService } from "./seller.service";
 export { adminService } from "./admin.service";
+export { addressService } from "./address.service";
+export { reviewService } from "./review.service";
+export { notificationService } from "./notification.service";
+export { invoiceService } from "./invoice.service";
+export { shipmentService } from "./shipment.service";
