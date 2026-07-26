@@ -1,6 +1,6 @@
 import { apiClient } from "./apiClient";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-import { Category, SubCategory, Brand, Collection } from "../types/product.types";
+import { Category, SubCategory, Brand, Collection, Color, Size } from "../types/product.types";
 import { ApiResponse } from "../types/api.types";
 
 // In-memory cache for fast frontend responses
@@ -187,5 +187,33 @@ export const categoryService = {
   async deleteCollection(id: string | number): Promise<ApiResponse> {
     const response = await apiClient.delete(API_ENDPOINTS.COLLECTIONS.BY_ID(id));
     return response.data;
+  },
+
+  async getColors(): Promise<Color[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>(API_ENDPOINTS.COLORS.BASE);
+      const data = response.data?.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.colors)) return data.colors;
+      if (data && Array.isArray(data.items)) return data.items;
+      return [];
+    } catch (error) {
+      console.error("[categoryService.getColors ERROR]", error);
+      return [];
+    }
+  },
+
+  async getSizes(): Promise<Size[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>(API_ENDPOINTS.SIZES.BASE);
+      const data = response.data?.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.sizes)) return data.sizes;
+      if (data && Array.isArray(data.items)) return data.items;
+      return [];
+    } catch (error) {
+      console.error("[categoryService.getSizes ERROR]", error);
+      return [];
+    }
   },
 };

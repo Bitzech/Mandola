@@ -3,7 +3,7 @@ import { Heart, Loader2 } from "lucide-react";
 import { ALL_PRODUCTS } from "../data";
 import type { Page, ProductType } from "../data";
 import { categoryService } from "../services/category.service";
-import { Category, SubCategory, Brand } from "../types/product.types";
+import { Category, SubCategory, Brand, Color, Size } from "../types/product.types";
 
 interface Props {
   page: NonNullable<Page>;
@@ -16,11 +16,15 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
   const [sortBy, setSortBy] = useState("featured");
   const [priceFilter, setPriceFilter] = useState("all");
   const [selectedBrand, setSelectedBrand] = useState("all");
+  const [selectedSize, setSelectedSize] = useState("all");
+  const [selectedColor, setSelectedColor] = useState("all");
   const [wished, setWished] = useState<Set<number>>(new Set());
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [liveBrands, setLiveBrands] = useState<Brand[]>([]);
+  const [liveColors, setLiveColors] = useState<Color[]>([]);
+  const [liveSizes, setLiveSizes] = useState<Size[]>([]);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,12 +34,16 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
 
     Promise.all([
       categoryService.getCategoriesWithSubCategories(),
-      categoryService.getBrands()
+      categoryService.getBrands(),
+      categoryService.getColors(),
+      categoryService.getSizes()
     ])
-      .then(([allCats, allBrands]) => {
+      .then(([allCats, allBrands, allColors, allSizes]) => {
         if (!mounted) return;
         setCategories(allCats);
         if (allBrands && allBrands.length > 0) setLiveBrands(allBrands);
+        if (allColors && allColors.length > 0) setLiveColors(allColors);
+        if (allSizes && allSizes.length > 0) setLiveSizes(allSizes);
 
         // Match category by slug or name
         const match = allCats.find(c =>
@@ -140,7 +148,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
 
         {/* Live Brands Filter Pills */}
         {liveBrands.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-8 pb-4 border-b border-[#f0f0f0]">
+          <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-[#f0f0f0]">
             <span className="text-[10px] tracking-[0.2em] uppercase text-[#9e9e9e] font-semibold mr-2">Brand:</span>
             <button
               onClick={() => setSelectedBrand("all")}
@@ -159,6 +167,53 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
             ))}
           </div>
         )}
+
+        {/* Live Sizes & Colors Filter Bars */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-[#f0f0f0]">
+          {/* Sizes */}
+          {liveSizes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[#9e9e9e] font-semibold mr-2">Size:</span>
+              <button
+                onClick={() => setSelectedSize("all")}
+                className={`px-3 py-1 text-[10px] tracking-[0.15em] uppercase border transition-colors rounded-sm ${selectedSize === "all" ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-[#ececec] text-[#6e6e6e] hover:border-[#d4145a] hover:text-[#d4145a]"}`}
+              >
+                All Sizes
+              </button>
+              {liveSizes.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSize(s.slug || s.code)}
+                  className={`px-3 py-1 text-[10px] tracking-[0.15em] uppercase border transition-colors rounded-sm ${selectedSize === (s.slug || s.code) ? "bg-[#d4145a] text-white border-[#d4145a]" : "border-[#ececec] text-[#6e6e6e] hover:border-[#d4145a] hover:text-[#d4145a]"}`}
+                >
+                  {s.name || s.code}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Colors */}
+          {liveColors.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[#9e9e9e] font-semibold mr-2">Color:</span>
+              <button
+                onClick={() => setSelectedColor("all")}
+                className={`px-3 py-1 text-[10px] tracking-[0.15em] uppercase border transition-colors rounded-sm ${selectedColor === "all" ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-[#ececec] text-[#6e6e6e] hover:border-[#d4145a] hover:text-[#d4145a]"}`}
+              >
+                All Colors
+              </button>
+              {liveColors.slice(0, 7).map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedColor(c.slug)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${selectedColor === c.slug ? "border-[#d4145a] scale-110 ring-2 ring-[#d4145a] ring-offset-1" : "border-[#ececec] hover:border-[#1a1a1a]"}`}
+                  style={{ backgroundColor: c.hex_code || "#ececec" }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Sort + filter bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-5 border-b border-[#ececec]">

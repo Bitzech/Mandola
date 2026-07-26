@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Heart, Star, Truck, RefreshCw, Shield, Share2, ZoomIn,
   X, Check, MapPin, RotateCcw, BadgeCheck, Headphones,
@@ -8,6 +8,8 @@ import {
 import { ALL_PRODUCTS } from "../data";
 import type { ProductType } from "../data";
 import { u } from "../data";
+import { categoryService } from "../services/category.service";
+import { Size, Color } from "../types/product.types";
 
 interface Props {
   product: ProductType;
@@ -166,13 +168,31 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
 
+  const [liveSizes, setLiveSizes] = useState<Size[]>([]);
+  const [liveColors, setLiveColors] = useState<Color[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    categoryService.getSizes().then((data) => {
+      if (mounted && data && data.length > 0) setLiveSizes(data);
+    }).catch(err => console.error("[ProductDetail] Error fetching sizes", err));
+
+    categoryService.getColors().then((data) => {
+      if (mounted && data && data.length > 0) setLiveColors(data);
+    }).catch(err => console.error("[ProductDetail] Error fetching colors", err));
+
+    return () => { mounted = false; };
+  }, []);
+
   const images = [
     product.img1, product.img2,
     product.img1.replace("500,650", "600,750"),
     product.img2.replace("500,650", "600,750"),
   ];
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
-  const sizes = ["XS", "S", "M", "L", "XL", "XXL"];
+  const sizes = liveSizes.length > 0
+    ? liveSizes.map(s => s.name || s.code)
+    : ["XS", "S", "M", "L", "XL", "XXL"];
   const related = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 4);
   const recentlyViewed = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(4, 8);
   const similar = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 6);

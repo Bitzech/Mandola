@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, X, Plus } from "lucide-react";
 import { SELLER_PRODUCTS, type SellerNavigateFn } from "./sellerData";
+import { categoryService } from "../../services/category.service";
+import { Size, Color } from "../../types/product.types";
 
 const InputField = ({ label, placeholder, type = "text", defaultValue }: { label: string; placeholder?: string; type?: string; defaultValue?: string }) => (
   <div>
@@ -14,15 +16,31 @@ const InputField = ({ label, placeholder, type = "text", defaultValue }: { label
   </div>
 );
 
-const SIZES   = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
-const COLORS  = ["Black", "White", "Red", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple", "Beige", "Grey", "Gold"];
+const STATIC_SIZES   = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+const STATIC_COLORS  = ["Black", "White", "Red", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple", "Beige", "Grey", "Gold"];
 const CATEGORIES = ["Sarees", "Kurtas", "Lehengas", "Anarkalis", "Suits", "Western", "Accessories"];
 
 export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerNavigateFn; editId?: string | null }) {
   const existing = editId ? SELLER_PRODUCTS.find(p => p.id === editId) : null;
   const [selectedSizes,  setSelectedSizes]  = useState<string[]>(["M", "L"]);
   const [selectedColors, setSelectedColors] = useState<string[]>(["Black", "White"]);
+  const [liveSizes, setLiveSizes] = useState<Size[]>([]);
+  const [liveColors, setLiveColors] = useState<Color[]>([]);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    categoryService.getSizes().then(data => {
+      if (mounted && data && data.length > 0) setLiveSizes(data);
+    });
+    categoryService.getColors().then(data => {
+      if (mounted && data && data.length > 0) setLiveColors(data);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const displaySizes = liveSizes.length > 0 ? liveSizes.map(s => s.name || s.code) : STATIC_SIZES;
+  const displayColors = liveColors.length > 0 ? liveColors.map(c => c.name) : STATIC_COLORS;
 
   const toggle = (arr: string[], val: string, set: (a: string[]) => void) => {
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -113,7 +131,7 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
             <div>
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#6e6e6e] mb-3">Available Sizes</p>
               <div className="flex flex-wrap gap-2">
-                {SIZES.map(s => (
+                {displaySizes.map(s => (
                   <button
                     key={s} type="button"
                     onClick={() => toggle(selectedSizes, s, setSelectedSizes)}
@@ -131,7 +149,7 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
             <div>
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#6e6e6e] mb-3">Available Colours</p>
               <div className="flex flex-wrap gap-2">
-                {COLORS.map(c => (
+                {displayColors.map(c => (
                   <button
                     key={c} type="button"
                     onClick={() => toggle(selectedColors, c, setSelectedColors)}

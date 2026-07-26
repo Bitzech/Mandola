@@ -43,13 +43,17 @@ export interface Color {
   id: number;
   name: string;
   code: string;
+  slug?: string;
   hex_code?: string;
+  status?: string | number;
 }
 
 export interface Size {
   id: number;
   name: string;
   code: string;
+  slug?: string;
+  status?: string | number;
 }
 
 export interface ProductVariant {
