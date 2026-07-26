@@ -85,9 +85,9 @@ export function CartPanel({ onClose }: CartPanelProps) {
         </div>
 
         <div className="px-6 py-5 border-t border-[#ececec] space-y-3">
-          <div className="flex justify-between text-sm font-medium">
-            <span>Subtotal</span>
-            <span className="font-semibold">₹{subtotal.toLocaleString("en-IN")}</span>
+          <div className="flex justify-between text-base font-bold text-[#1a1a1a]">
+            <span>Total</span>
+            <span className="font-bold text-[#d4145a]">₹{subtotal.toLocaleString("en-IN")}</span>
           </div>
           <p className="text-[10px] text-[#6e6e6e] tracking-wide">Taxes and shipping calculated at checkout</p>
           <button
@@ -113,6 +113,22 @@ interface WishlistPanelProps {
 
 export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
   const { items, removeFromWishlist } = useWishlist();
+  const { addItem: addToCartItem } = useCart();
+  const navigate = useNavigate();
+
+  const handleViewDetails = (pId: number) => {
+    onClose();
+    window.scrollTo(0, 0);
+    navigate(`/product/${pId}`);
+  };
+
+  const handleQuickAdd = (p: any) => {
+    const pId = Number(p.product_id || p.id);
+    const variantId = Number(p.default_variant_id || p.variant_id || p.product_variant_id || pId);
+    addToCartItem(variantId, 1);
+    onClose();
+    navigate("/checkout");
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -136,13 +152,35 @@ export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
 
               return (
                 <div key={pId} className="flex gap-4 border-b border-[#f5f5f5] pb-4">
-                  <img src={img} alt={name} className="w-20 object-cover flex-shrink-0 bg-[#faf7f4] rounded-sm" style={{ height: "6.5rem" }} />
+                  <img
+                    src={img}
+                    alt={name}
+                    onClick={() => handleViewDetails(pId)}
+                    className="w-20 object-cover flex-shrink-0 bg-[#faf7f4] rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    style={{ height: "6.5rem" }}
+                  />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1 line-clamp-1">{name}</p>
-                    <p className="text-sm font-semibold mb-3">₹{price.toLocaleString("en-IN")}</p>
-                    <button onClick={onClose} className="text-[10px] tracking-[0.15em] uppercase bg-[#1a1a1a] text-white px-4 py-1.5 hover:bg-[#d4145a] transition-colors">
-                      View Details
-                    </button>
+                    <p
+                      onClick={() => handleViewDetails(pId)}
+                      className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1 line-clamp-1 cursor-pointer hover:text-[#d4145a] transition-colors"
+                    >
+                      {name}
+                    </p>
+                    <p className="text-sm font-semibold mb-2">₹{price.toLocaleString("en-IN")}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewDetails(pId)}
+                        className="text-[9px] tracking-[0.15em] uppercase border border-[#1a1a1a] text-[#1a1a1a] px-3 py-1.5 hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={() => handleQuickAdd(p)}
+                        className="text-[9px] tracking-[0.15em] uppercase bg-[#d4145a] text-white px-3 py-1.5 hover:bg-[#a00e42] transition-colors"
+                      >
+                        Add to Bag
+                      </button>
+                    </div>
                   </div>
                   <button onClick={() => removeFromWishlist(pId)} className="text-[#6e6e6e] hover:text-[#d4145a] self-start mt-1">
                     <X size={14} />

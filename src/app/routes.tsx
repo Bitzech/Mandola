@@ -11,6 +11,7 @@ const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const CategoryRoutePage = lazy(() => import("./pages/CategoryRoutePage"));
 const ProductRoutePage = lazy(() => import("./pages/ProductRoutePage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const CustomerDashboard = lazy(() => import("./pages/CustomerDashboard"));
 const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: "category/:categorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "category/:categorySlug/:subCategorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "product/:productId", element: wrap(<ProductRoutePage />) },
+      { path: "checkout", element: wrap(<CheckoutPage />) },
       { path: "search", element: wrap(<HomePage />) },
       { path: "collections", element: wrap(<HomePage />) },
       { path: "collection/:collectionSlug", element: wrap(<HomePage />) },

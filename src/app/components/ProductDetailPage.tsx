@@ -3,8 +3,9 @@ import {
   Heart, Star, Truck, RefreshCw, Shield, Share2, ZoomIn,
   X, Check, MapPin, RotateCcw, BadgeCheck, Headphones,
   ChevronRight, ChevronLeft, ThumbsUp, Flag, ShoppingBag,
-  Award, Zap, Lock
+  Award, Zap, Lock, Copy, MessageCircle
 } from "lucide-react";
+import { toast } from "sonner";
 import { ALL_PRODUCTS } from "../data";
 import type { ProductType } from "../data";
 import { u } from "../data";
@@ -1002,6 +1003,68 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
 
       {/* Bottom padding on mobile for sticky bar */}
       <div className="md:hidden h-20" />
+
+      {/* ─── SHARE PRODUCT MODAL ─── */}
+      {showShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowShare(false)} />
+          <div className="relative w-full max-w-md bg-white p-6 rounded-sm shadow-2xl z-10 border border-[#ececec]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#ececec] mb-5">
+              <div className="flex items-center gap-2">
+                <Share2 size={18} className="text-[#d4145a]" />
+                <h3 className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">Share This Product</h3>
+              </div>
+              <button onClick={() => setShowShare(false)} className="text-[#6e6e6e] hover:text-[#1a1a1a]">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 mb-5 p-3 bg-[#faf7f4] rounded-sm">
+              <img src={images[0]} alt={product.name} className="w-14 h-16 object-cover rounded-sm flex-shrink-0" />
+              <div className="overflow-hidden">
+                <p className="text-xs font-semibold text-[#1a1a1a] truncate">{product.name}</p>
+                <p className="text-sm font-bold text-[#d4145a] mt-0.5">₹{product.price.toLocaleString("en-IN")}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Product link copied to clipboard!");
+                  setShowShare(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 border border-[#1a1a1a] py-3 text-xs tracking-[0.15em] uppercase font-semibold text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+              >
+                <Copy size={15} />
+                Copy Product Link
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Check out ${product.name} on Mandola: ${window.location.href}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowShare(false)}
+                  className="flex items-center justify-center gap-2 bg-[#25D366] text-white py-2.5 text-xs font-medium rounded-sm hover:opacity-90 transition-opacity"
+                >
+                  <MessageCircle size={15} />
+                  WhatsApp
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${product.name} on Mandola`)}&url=${encodeURIComponent(window.location.href)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowShare(false)}
+                  className="flex items-center justify-center gap-2 bg-[#1DA1F2] text-white py-2.5 text-xs font-medium rounded-sm hover:opacity-90 transition-opacity"
+                >
+                  Twitter / X
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

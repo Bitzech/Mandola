@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { Heart, ShoppingBag, X, RefreshCw } from "lucide-react";
 import { useWishlist } from "../context/WishlistContext";
 import { wishlistService } from "../services/wishlist.service";
@@ -7,6 +8,7 @@ import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 
 export default function WishlistPage() {
+  const navigate = useNavigate();
   const { items, loading, removeFromWishlist, refreshWishlist } = useWishlist();
   const [addingToCart, setAddingToCart] = useState<Set<number>>(new Set());
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -90,7 +92,10 @@ export default function WishlistPage() {
             return (
               <div key={pId || p.wishlist_item_id} className="group relative bg-white border border-[#ececec] overflow-hidden">
                 {/* Image */}
-                <div className="relative overflow-hidden aspect-[3/4] bg-[#faf7f4]">
+                <div
+                  onClick={() => navigate(`/product/${pId}`)}
+                  className="relative overflow-hidden aspect-[3/4] bg-[#faf7f4] cursor-pointer"
+                >
                   <img src={img} alt={name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   {tag && (
                     <span className="absolute top-2 left-2 text-[9px] font-semibold tracking-[0.1em] uppercase bg-white text-[#1a1a1a] px-2 py-0.5">{tag}</span>
@@ -100,7 +105,10 @@ export default function WishlistPage() {
                   )}
                   <button
                     disabled={isRemoving}
-                    onClick={() => handleRemove(pId)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemove(pId);
+                    }}
                     className="absolute top-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-sm text-[#6e6e6e] hover:text-[#d4145a] transition-colors disabled:opacity-50"
                   >
                     {isRemoving ? <RefreshCw size={10} className="animate-spin" /> : <X size={12} />}
@@ -108,7 +116,12 @@ export default function WishlistPage() {
                 </div>
                 {/* Info */}
                 <div className="p-3">
-                  <p className="text-xs font-medium text-[#1a1a1a] leading-snug mb-1.5 truncate">{name}</p>
+                  <p
+                    onClick={() => navigate(`/product/${pId}`)}
+                    className="text-xs font-medium text-[#1a1a1a] leading-snug mb-1.5 truncate cursor-pointer hover:text-[#d4145a] transition-colors"
+                  >
+                    {name}
+                  </p>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-sm font-semibold">{formatCurrency(price)}</span>
                     {mrp > price && (
