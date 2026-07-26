@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { ArrowRight, Star, Instagram, Quote, Award, RefreshCw, Shield, Truck } from "lucide-react";
+import { ArrowRight, Star, Instagram, Quote, Award, RefreshCw, Shield, Truck, Sparkles, Bookmark } from "lucide-react";
 import { CATEGORIES, PRODUCTS, BEST_SELLERS, REVIEWS, LOOKBOOK, u } from "../data";
 import type { Page } from "../data";
 import ProductCard from "./ProductCard";
 import { categoryService } from "../services/category.service";
-import { Category } from "../types/product.types";
+import { Category, Brand, Collection } from "../types/product.types";
 
 interface Props {
   setCurrentPage: (p: Page) => void;
@@ -22,25 +22,39 @@ const WHY_ITEMS = [
 ];
 
 export default function HomeSections({ setCurrentPage, email, setEmail, subscribed, setSubscribed }: Props) {
-  const [reviewIdx] = useState(0);
-  void reviewIdx;
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingBrands, setLoadingBrands] = useState(true);
+  const [loadingCollections, setLoadingCollections] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+
+    // Fetch Categories
     categoryService.getCategories()
       .then((data) => {
-        if (mounted && data && data.length > 0) {
-          setCategories(data);
-        }
+        if (mounted && data && data.length > 0) setCategories(data);
       })
-      .catch((err) => {
-        console.error("[HomeSections] Failed to fetch categories", err);
+      .catch((err) => console.error("[HomeSections] Failed to fetch categories", err))
+      .finally(() => { if (mounted) setLoadingCats(false); });
+
+    // Fetch Brands
+    categoryService.getBrands()
+      .then((data) => {
+        if (mounted && data && data.length > 0) setBrands(data);
       })
-      .finally(() => {
-        if (mounted) setLoadingCats(false);
-      });
+      .catch((err) => console.error("[HomeSections] Failed to fetch brands", err))
+      .finally(() => { if (mounted) setLoadingBrands(false); });
+
+    // Fetch Collections
+    categoryService.getCollections()
+      .then((data) => {
+        if (mounted && data && data.length > 0) setCollections(data);
+      })
+      .catch((err) => console.error("[HomeSections] Failed to fetch collections", err))
+      .finally(() => { if (mounted) setLoadingCollections(false); });
 
     return () => {
       mounted = false;
@@ -159,6 +173,117 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
                     Shop Now <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Curated Collections Showcase (LIVE FROM BACKEND API) ── */}
+      <section className="py-16 md:py-24 bg-[#faf7f4] border-y border-[#ececec]">
+        <div className="max-w-[1440px] mx-auto px-6 md:px-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
+            <div>
+              <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold flex items-center gap-1.5">
+                <Sparkles size={13} /> Curated Edits
+              </span>
+              <h2 className="font-['Playfair_Display'] text-3xl md:text-5xl font-bold text-[#1a1a1a] mt-2">
+                Featured Collections
+              </h2>
+            </div>
+            <p className="text-xs text-[#6e6e6e] font-light max-w-sm mt-3 md:mt-0">
+              Thematic capsule wardrobes designed for weddings, vacations, power dressing, and festive celebrations.
+            </p>
+          </div>
+
+          {loadingCollections ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-80 bg-[#ebe7e2] animate-pulse rounded-sm" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {collections.slice(0, 4).map((col) => (
+                <div
+                  key={col.id}
+                  onClick={() => { setCurrentPage({ category: col.name, sub: "all" }); window.scrollTo(0, 0); }}
+                  className="group relative overflow-hidden cursor-pointer rounded-sm shadow-sm bg-white border border-[#ececec] flex flex-col"
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden bg-[#f5f5f5]">
+                    <img
+                      src={col.image || u("1490481651871-ab68de25d43d", 600, 800)}
+                      alt={col.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  </div>
+                  <div className="p-5 flex flex-col flex-1 justify-between bg-white">
+                    <div>
+                      <h3 className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a] group-hover:text-[#d4145a] transition-colors">
+                        {col.name}
+                      </h3>
+                      {col.description && (
+                        <p className="text-xs text-[#6e6e6e] font-light mt-1.5 line-clamp-2 leading-relaxed">
+                          {col.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-[#f0f0f0] flex items-center justify-between text-[10px] tracking-[0.2em] uppercase font-semibold text-[#1a1a1a] group-hover:text-[#d4145a]">
+                      <span>Explore Edit</span>
+                      <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Featured Brands Showcase (LIVE FROM BACKEND API) ── */}
+      <section className="py-20 md:py-28 max-w-[1440px] mx-auto px-6 md:px-12">
+        <div className="text-center mb-12">
+          <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold flex items-center justify-center gap-1.5">
+            <Bookmark size={13} /> Designer Labels
+          </span>
+          <h2 className="font-['Playfair_Display'] text-3xl md:text-5xl font-bold text-[#1a1a1a] mt-2">
+            Top Fashion Brands
+          </h2>
+          <p className="text-xs text-[#6e6e6e] font-light max-w-md mx-auto mt-2">
+            Shop authentic creations from India&apos;s leading womenswear houses and indie ateliers.
+          </p>
+        </div>
+
+        {loadingBrands ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="h-24 bg-[#f5f5f5] animate-pulse rounded-sm" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {brands.slice(0, 6).map((b) => (
+              <div
+                key={b.id}
+                onClick={() => { setCurrentPage({ category: b.name, sub: "all" }); window.scrollTo(0, 0); }}
+                className="group p-5 bg-[#faf7f4] border border-[#ececec] rounded-sm hover:border-[#d4145a] hover:bg-white hover:shadow-md transition-all duration-300 cursor-pointer text-center flex flex-col items-center justify-center"
+              >
+                {b.logo ? (
+                  <img src={b.logo} alt={b.name} className="w-12 h-12 rounded-full object-cover mb-3 border border-[#ececec] group-hover:scale-110 transition-transform" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-[#1a1a1a] text-white flex items-center justify-center font-bold text-sm mb-3 group-hover:bg-[#d4145a] transition-colors">
+                    {b.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <h4 className="text-xs font-semibold text-[#1a1a1a] group-hover:text-[#d4145a] transition-colors truncate max-w-full">
+                  {b.name}
+                </h4>
+                {b.description && (
+                  <p className="text-[10px] text-[#9e9e9e] mt-1 line-clamp-1 font-light">
+                    {b.description}
+                  </p>
+                )}
               </div>
             ))}
           </div>

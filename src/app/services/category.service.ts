@@ -143,8 +143,12 @@ export const categoryService = {
 
   async getBrands(): Promise<Brand[]> {
     try {
-      const response = await apiClient.get<ApiResponse<Brand[]>>(API_ENDPOINTS.BRANDS.BASE);
-      return response.data?.data || [];
+      const response = await apiClient.get<ApiResponse<any>>(API_ENDPOINTS.BRANDS.BASE);
+      const data = response.data?.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.brands)) return data.brands;
+      if (data && Array.isArray(data.items)) return data.items;
+      return [];
     } catch (error) {
       console.error("[categoryService.getBrands ERROR]", error);
       return [];
@@ -163,8 +167,12 @@ export const categoryService = {
 
   async getCollections(): Promise<Collection[]> {
     try {
-      const response = await apiClient.get<ApiResponse<Collection[]>>(API_ENDPOINTS.COLLECTIONS.BASE);
-      return response.data?.data || [];
+      const response = await apiClient.get<ApiResponse<any>>(API_ENDPOINTS.COLLECTIONS.BASE);
+      const data = response.data?.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.collections)) return data.collections;
+      if (data && Array.isArray(data.items)) return data.items;
+      return [];
     } catch (error) {
       console.error("[categoryService.getCollections ERROR]", error);
       return [];

@@ -25,6 +25,7 @@ export interface Brand {
   name: string;
   slug: string;
   logo?: string;
+  description?: string;
   status?: string | number;
 }
 
@@ -33,6 +34,8 @@ export interface Collection {
   name: string;
   slug: string;
   banner?: string;
+  image?: string;
+  description?: string;
   status?: string | number;
 }
 

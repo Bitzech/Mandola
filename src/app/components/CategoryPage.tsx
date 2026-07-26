@@ -3,7 +3,7 @@ import { Heart, Loader2 } from "lucide-react";
 import { ALL_PRODUCTS } from "../data";
 import type { Page, ProductType } from "../data";
 import { categoryService } from "../services/category.service";
-import { Category, SubCategory } from "../types/product.types";
+import { Category, SubCategory, Brand } from "../types/product.types";
 
 interface Props {
   page: NonNullable<Page>;
@@ -15,10 +15,12 @@ interface Props {
 export default function CategoryPage({ page, onBack, onNavigate, onProductClick }: Props) {
   const [sortBy, setSortBy] = useState("featured");
   const [priceFilter, setPriceFilter] = useState("all");
+  const [selectedBrand, setSelectedBrand] = useState("all");
   const [wished, setWished] = useState<Set<number>>(new Set());
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [liveBrands, setLiveBrands] = useState<Brand[]>([]);
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,10 +28,14 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
     let mounted = true;
     setLoading(true);
 
-    categoryService.getCategoriesWithSubCategories()
-      .then((allCats) => {
+    Promise.all([
+      categoryService.getCategoriesWithSubCategories(),
+      categoryService.getBrands()
+    ])
+      .then(([allCats, allBrands]) => {
         if (!mounted) return;
         setCategories(allCats);
+        if (allBrands && allBrands.length > 0) setLiveBrands(allBrands);
 
         // Match category by slug or name
         const match = allCats.find(c =>
@@ -44,14 +50,13 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
             setSubCategories(match.subCategories);
           }
         } else if (allCats.length > 0) {
-          // If no exact slug match, use first matching category or fallback
           const fallback = allCats[0];
           setCurrentCategory(fallback);
           if (fallback.subCategories) setSubCategories(fallback.subCategories);
         }
       })
       .catch((err) => {
-        console.error("[CategoryPage] Error fetching category data:", err);
+        console.error("[CategoryPage] Error fetching page data:", err);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -133,6 +138,28 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
           </div>
         )}
 
+        {/* Live Brands Filter Pills */}
+        {liveBrands.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-8 pb-4 border-b border-[#f0f0f0]">
+            <span className="text-[10px] tracking-[0.2em] uppercase text-[#9e9e9e] font-semibold mr-2">Brand:</span>
+            <button
+              onClick={() => setSelectedBrand("all")}
+              className={`px-3 py-1 text-[10px] tracking-[0.15em] uppercase border transition-colors rounded-sm ${selectedBrand === "all" ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-[#ececec] text-[#6e6e6e] hover:border-[#d4145a] hover:text-[#d4145a]"}`}
+            >
+              All Brands
+            </button>
+            {liveBrands.slice(0, 8).map(b => (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBrand(b.slug)}
+                className={`px-3 py-1 text-[10px] tracking-[0.15em] uppercase border transition-colors rounded-sm ${selectedBrand === b.slug ? "bg-[#d4145a] text-white border-[#d4145a]" : "border-[#ececec] text-[#6e6e6e] hover:border-[#d4145a] hover:text-[#d4145a]"}`}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Sort + filter bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-5 border-b border-[#ececec]">
           <div className="flex items-center gap-3 flex-wrap">
@@ -148,57 +175,82 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">Sort:</span>
+            <span className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] font-medium">Sort by:</span>
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
-              className="text-xs border border-[#ececec] px-3 py-1.5 text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
+              className="text-xs bg-transparent border border-[#ececec] px-3 py-1.5 text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] cursor-pointer"
             >
               <option value="featured">Featured</option>
-              <option value="newest">Newest First</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
+              <option value="newest">Newest Arrivals</option>
             </select>
           </div>
         </div>
 
-        {/* Product grid */}
+        {/* Products count & Grid */}
+        <div className="flex justify-between items-center mb-6">
+          <p className="text-xs text-[#6e6e6e] tracking-wide font-light">
+            Showing <strong className="text-[#1a1a1a] font-semibold">{sorted.length}</strong> styles
+          </p>
+        </div>
+
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="animate-spin text-[#d4145a]" size={32} />
+          <div className="py-20 flex flex-col items-center justify-center text-[#9e9e9e]">
+            <Loader2 size={32} className="animate-spin text-[#d4145a] mb-3" />
+            <p className="text-xs tracking-[0.2em] uppercase">Loading collection styles…</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-7">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-7">
             {sorted.map(p => {
-              const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
-              const isWished = wished.has(p.id);
+              const isWish = wished.has(p.id);
               return (
-                <div key={p.id} className="group cursor-pointer" onClick={() => onProductClick(p)}>
-                  <div className="relative overflow-hidden bg-[#faf7f4] aspect-[3/4]">
-                    <img src={p.img1} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                    {p.tag && (
-                      <span className="absolute top-3 left-3 text-[9px] font-semibold tracking-[0.15em] uppercase bg-white text-[#1a1a1a] px-2.5 py-1">{p.tag}</span>
+                <div
+                  key={p.id}
+                  onClick={() => onProductClick(p)}
+                  className="group relative cursor-pointer flex flex-col"
+                >
+                  <div className="relative aspect-[3/4] overflow-hidden bg-[#faf7f4] mb-3 rounded-sm">
+                    <img
+                      src={p.img1}
+                      alt={p.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    {p.img2 && (
+                      <img
+                        src={p.img2}
+                        alt={p.name}
+                        className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                      />
                     )}
-                    <span className="absolute top-3 right-10 text-[9px] font-semibold bg-[#d4145a] text-white px-2 py-1">-{discount}%</span>
+                    {p.tag && (
+                      <span className="absolute top-2.5 left-2.5 bg-[#1a1a1a] text-white text-[9px] tracking-[0.15em] uppercase font-semibold px-2 py-0.5">
+                        {p.tag}
+                      </span>
+                    )}
                     <button
-                      onClick={e => { e.stopPropagation(); setWished(w => { const n = new Set(w); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; }); }}
-                      className="absolute top-3 right-3 p-1.5 bg-white rounded-full shadow-sm"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setWished(prev => {
+                          const next = new Set(prev);
+                          if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
+                          return next;
+                        });
+                      }}
+                      className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-[#1a1a1a] hover:text-[#d4145a] transition-colors shadow-sm"
                     >
-                      <Heart size={13} strokeWidth={1.5} className={isWished ? "fill-[#d4145a] text-[#d4145a]" : "text-[#6e6e6e]"} />
+                      <Heart size={15} fill={isWish ? "#d4145a" : "none"} className={isWish ? "text-[#d4145a]" : ""} />
                     </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-[#1a1a1a] text-white text-center py-2.5 text-[10px] tracking-[0.15em] uppercase translate-y-full group-hover:translate-y-0 transition-transform duration-300 cursor-pointer">
-                      Add to Bag
-                    </div>
                   </div>
-                  <div className="pt-3">
-                    <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1">{p.name}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">₹{p.price.toLocaleString("en-IN")}</span>
-                      <span className="text-xs text-[#6e6e6e] line-through">₹{p.mrp.toLocaleString("en-IN")}</span>
-                    </div>
-                    <div className="flex gap-1.5 mt-2">
-                      {p.colors.map((c, i) => <div key={i} className="w-3 h-3 rounded-full border border-[#ececec]" style={{ backgroundColor: c }} />)}
-                    </div>
+                  <h3 className="text-xs font-medium text-[#1a1a1a] group-hover:text-[#d4145a] transition-colors leading-snug line-clamp-1">
+                    {p.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-semibold text-[#1a1a1a]">₹{p.price.toLocaleString("en-IN")}</span>
+                    {p.mrp > p.price && (
+                      <span className="text-[11px] text-[#9e9e9e] line-through">₹{p.mrp.toLocaleString("en-IN")}</span>
+                    )}
                   </div>
                 </div>
               );
