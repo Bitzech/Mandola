@@ -37,6 +37,14 @@ export const orderService = {
   },
 
   /**
+   * Fetch order status timeline history
+   */
+  async getStatusHistory(id: string | number): Promise<ApiResponse<any[]>> {
+    const response = await apiClient.get(API_ENDPOINTS.ORDERS.TIMELINE(id));
+    return response.data;
+  },
+
+  /**
    * Fetch customer saved addresses
    */
   async getAddresses(): Promise<ApiResponse<Address[]>> {
