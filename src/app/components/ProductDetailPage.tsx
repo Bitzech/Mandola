@@ -11,6 +11,7 @@ import { u } from "../data";
 import { categoryService } from "../services/category.service";
 import { Size, Color } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
+import { useCart } from "../context/CartContext";
 
 interface Props {
   product: ProductType;
@@ -202,8 +203,12 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const avgRating = 4.7;
   const totalReviews = 128;
 
+  const { addItem: addToCartItem } = useCart();
+
   const handleAddToBag = () => {
     if (!selectedSize) return;
+    const variantId = (product as any).default_variant_id || (product as any).variant_id || product.id || 1;
+    addToCartItem(Number(variantId), qty);
     onAddToBag();
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);

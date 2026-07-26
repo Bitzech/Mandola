@@ -59,8 +59,9 @@ export default function DashboardHome({ onNavigate }: { onNavigate: NavigateFn }
       }
 
       if (cartRes.status === "fulfilled") {
-        const cSummary = cartRes.value.data || cartRes.value;
-        setCartCount(cSummary?.total_items || cSummary?.count || 0);
+        const cSummary = cartRes.value?.summary;
+        const cItems = cartRes.value?.items || [];
+        setCartCount(Number(cSummary?.total_items) || cItems.reduce((acc: number, curr: any) => acc + (Number(curr.quantity) || 1), 0));
       }
     } catch (err: any) {
       const msg = extractErrorMessage(err, "Failed to load dashboard statistics.");

@@ -5,43 +5,96 @@ import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { getDashboardPathForRole } from "../routes/GuestRoute";
 
+import { useCart } from "../context/CartContext";
+
 interface CartPanelProps {
-  cartCount: number;
-  setCartCount: (fn: (c: number) => number) => void;
+  cartCount?: number;
+  setCartCount?: (fn: (c: number) => number) => void;
   onClose: () => void;
 }
 
-export function CartPanel({ cartCount, setCartCount, onClose }: CartPanelProps) {
+export function CartPanel({ onClose }: CartPanelProps) {
+  const { items, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
+  const navigate = useNavigate();
+
+  const handleCheckout = () => {
+    onClose();
+    navigate("/checkout");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative w-96 max-w-full bg-white h-full flex flex-col shadow-2xl">
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#ececec]">
-          <h2 className="font-['Playfair_Display'] text-xl font-semibold">Shopping Bag ({cartCount})</h2>
+          <h2 className="font-['Playfair_Display'] text-xl font-semibold">Shopping Bag ({itemCount})</h2>
           <button onClick={onClose} className="text-[#6e6e6e] hover:text-[#1a1a1a]"><X size={18} /></button>
         </div>
+
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {PRODUCTS.slice(0, cartCount).map(p => (
-            <div key={p.id} className="flex gap-4">
-              <img src={p.img1} alt={p.name} className="w-20 object-cover flex-shrink-0 bg-[#faf7f4]" style={{ height: "6.5rem" }} />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1">{p.name}</p>
-                <p className="text-xs text-[#6e6e6e] mb-2">Size: M &nbsp;·&nbsp; Qty: 1</p>
-                <p className="text-sm font-semibold">₹{p.price.toLocaleString("en-IN")}</p>
-              </div>
-              <button onClick={() => setCartCount(c => Math.max(0, c - 1))} className="text-[#6e6e6e] hover:text-[#d4145a] self-start mt-1">
-                <X size={14} />
-              </button>
+          {items.length === 0 ? (
+            <div className="py-16 text-center text-xs text-[#9e9e9e] font-light">
+              Your shopping bag is empty.
             </div>
-          ))}
+          ) : (
+            items.map((item) => {
+              const variantId = Number(item.product_variant_id);
+              const name = item.product_name || item.name || "Fashion Style";
+              const price = Number(item.sale_price !== null && item.sale_price !== undefined ? item.sale_price : item.price) || 0;
+              const qty = Number(item.quantity) || 1;
+              const sizeLabel = item.size ? `Size: ${item.size}` : "";
+              const colorLabel = item.color ? `Color: ${item.color}` : "";
+              const variantDetails = [sizeLabel, colorLabel].filter(Boolean).join(" · ");
+              const img = item.thumbnail || item.img1 || item.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";
+
+              return (
+                <div key={variantId || item.cart_item_id} className="flex gap-4 border-b border-[#f5f5f5] pb-4">
+                  <img src={img} alt={name} className="w-20 object-cover flex-shrink-0 bg-[#faf7f4] rounded-sm" style={{ height: "6.5rem" }} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[#1a1a1a] leading-snug mb-1 line-clamp-1">{name}</p>
+                    {variantDetails && (
+                      <p className="text-xs text-[#6e6e6e] mb-2">{variantDetails}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm font-semibold">₹{price.toLocaleString("en-IN")}</p>
+                      {/* Quantity Controls */}
+                      <div className="flex items-center border border-[#ececec] rounded">
+                        <button
+                          onClick={() => updateQuantity(variantId, qty - 1)}
+                          className="px-2 py-0.5 text-xs text-[#6e6e6e] hover:bg-slate-100"
+                        >
+                          -
+                        </button>
+                        <span className="px-2 text-xs font-semibold">{qty}</span>
+                        <button
+                          onClick={() => updateQuantity(variantId, qty + 1)}
+                          className="px-2 py-0.5 text-xs text-[#6e6e6e] hover:bg-slate-100"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => removeItem(variantId)} className="text-[#6e6e6e] hover:text-[#d4145a] self-start mt-1">
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
+
         <div className="px-6 py-5 border-t border-[#ececec] space-y-3">
           <div className="flex justify-between text-sm font-medium">
             <span>Subtotal</span>
-            <span>₹{PRODUCTS.slice(0, cartCount).reduce((s, p) => s + p.price, 0).toLocaleString("en-IN")}</span>
+            <span className="font-semibold">₹{subtotal.toLocaleString("en-IN")}</span>
           </div>
-          <p className="text-[10px] text-[#6e6e6e] tracking-wide">Shipping calculated at checkout</p>
-          <button className="w-full bg-[#1a1a1a] text-white py-3.5 text-xs tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors">
+          <p className="text-[10px] text-[#6e6e6e] tracking-wide">Taxes and shipping calculated at checkout</p>
+          <button
+            disabled={items.length === 0}
+            onClick={handleCheckout}
+            className="w-full bg-[#1a1a1a] text-white py-3.5 text-xs tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Proceed to Checkout
           </button>
           <button onClick={onClose} className="w-full border border-[#ececec] text-[#1a1a1a] py-3 text-xs tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">

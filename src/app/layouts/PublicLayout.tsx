@@ -7,6 +7,7 @@ import { CartPanel, WishlistPanel, AccountDropdown } from "../components/Panels"
 import type { Page } from "../data";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useCart } from "../context/CartContext";
 import { getDashboardPathForRole } from "../routes/GuestRoute";
 
 export interface PublicOutletCtx {
@@ -22,6 +23,7 @@ export default function PublicLayout() {
   const location = useLocation();
   const { user, isAuthenticated, role, roleId } = useAuth();
   const { wishCount } = useWishlist();
+  const { itemCount: cartCount } = useCart();
 
   const isLogged = isAuthenticated || Boolean(user?.id);
 
@@ -30,7 +32,6 @@ export default function PublicLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [megaMenu, setMegaMenu] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(2);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishOpen, setWishOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -71,7 +72,7 @@ export default function PublicLayout() {
 
   const ctx: PublicOutletCtx = {
     cartCount,
-    addToBag: () => setCartCount(c => c + 1),
+    addToBag: () => setCartOpen(true),
     wishCount,
   };
 
@@ -137,8 +138,6 @@ export default function PublicLayout() {
 
       {cartOpen && (
         <CartPanel
-          cartCount={cartCount}
-          setCartCount={setCartCount}
           onClose={() => setCartOpen(false)}
         />
       )}
