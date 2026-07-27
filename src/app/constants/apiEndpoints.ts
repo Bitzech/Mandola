@@ -162,6 +162,10 @@ export const API_ENDPOINTS = {
     BASE: "/shipments",
     BY_ID: (id: string | number) => `/shipments/${id}`,
     TRACK: (id: string | number) => `/shipments/${id}/track`,
+    SELLER_BASE: "/seller/shipments",
+    SELLER_BY_ID: (id: string | number) => `/seller/shipments/${id}`,
+    SELLER_CREATE: (orderId: string | number) => `/shipments/seller/orders/${orderId}`,
+    SELLER_STATUS: (id: string | number) => `/shipments/seller/${id}/status`,
   },
   SEARCH: "/search",
   STATIC: {
