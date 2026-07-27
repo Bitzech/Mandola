@@ -1,5 +1,6 @@
-import { useId } from "react";
+import { useId, useState, useEffect } from "react";
 import { ShoppingBag, Package, TrendingUp, AlertTriangle, Star, Bell } from "lucide-react";
+import { reviewService } from "../../services/review.service";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, ResponsiveContainer
@@ -22,6 +23,25 @@ const StatCard = ({ label, value, sub, accent }: { label: string; value: string;
 export default function SellerHome({ onNavigate }: { onNavigate: SellerNavigateFn }) {
   const uid = useId().replace(/:/g, "");
   const gradId = `sellerRevGrad-${uid}`;
+
+  const [liveSellerReviews, setLiveSellerReviews] = useState<any[]>([]);
+
+  useEffect(() => {
+    reviewService.getReviews({ limit: 5 }).then((res: any) => {
+      const rawData = res?.data || res;
+      const items = Array.isArray(rawData) ? rawData : Array.isArray(rawData?.items) ? rawData.items : [];
+      if (items.length > 0) setLiveSellerReviews(items);
+    }).catch(() => {});
+  }, []);
+
+  const displaySellerReviews = liveSellerReviews.length > 0 ? liveSellerReviews.map(r => ({
+    id: r.id,
+    customer: r.user_name || `${r.first_name || ""} ${r.last_name || ""}`.trim() || r.customer_name || "Customer",
+    product: r.product_name || r.product || `Product #${r.product_id}`,
+    rating: Number(r.rating) || 5,
+    text: r.review || r.comment || r.review_text || "",
+    replied: Boolean(r.seller_reply || (r.replies && r.replies.length > 0))
+  })) : SELLER_REVIEWS;
 
   return (
     <div className="space-y-8">
@@ -233,7 +253,7 @@ export default function SellerHome({ onNavigate }: { onNavigate: SellerNavigateF
             </div>
           </div>
           <div className="divide-y divide-[#ececec]">
-            {SELLER_REVIEWS.slice(0, 3).map(r => (
+            {displaySellerReviews.slice(0, 3).map(r => (
               <div key={r.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>

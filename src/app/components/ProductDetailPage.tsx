@@ -11,6 +11,7 @@ import type { ProductType } from "../data";
 import { u } from "../data";
 import { categoryService } from "../services/category.service";
 import { productService } from "../services/product.service";
+import { reviewService } from "../services/review.service";
 import { Size, Color } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
@@ -179,6 +180,8 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const [liveImages, setLiveImages] = useState<string[]>([]);
   const [liveVariants, setLiveVariants] = useState<any[]>([]);
   const [liveAttributes, setLiveAttributes] = useState<any[]>([]);
+  const [liveReviews, setLiveReviews] = useState<any[]>([]);
+  const [liveSummary, setLiveSummary] = useState<any>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -209,6 +212,26 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
           setLiveAttributes(res.data);
         }
       }).catch(() => {});
+
+      reviewService.getProductReviews(product.id).then(res => {
+        const rawData: any = res?.data || res;
+        const items = Array.isArray(rawData)
+          ? rawData
+          : Array.isArray(rawData?.items)
+          ? rawData.items
+          : Array.isArray(rawData?.data)
+          ? rawData.data
+          : [];
+        if (mounted && items.length > 0) {
+          setLiveReviews(items);
+        }
+      }).catch(() => {});
+
+      reviewService.getProductRatingSummary(product.id).then(res => {
+        if (mounted && res?.data) {
+          setLiveSummary(res.data);
+        }
+      }).catch(() => {});
     }
 
     return () => { mounted = false; };
@@ -228,8 +251,22 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const related = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 4);
   const recentlyViewed = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(4, 8);
   const similar = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 6);
-  const avgRating = 4.7;
-  const totalReviews = 128;
+  const displayReviews = liveReviews.length > 0 ? liveReviews.map(r => ({
+    id: r.id,
+    name: r.user_name || `${r.first_name || ""} ${r.last_name || ""}`.trim() || r.name || "Verified Customer",
+    city: r.city || "Verified Buyer",
+    rating: Number(r.rating) || 5,
+    title: r.title || "Excellent Quality",
+    body: r.review || r.comment || r.body || "",
+    images: Array.isArray(r.images) ? r.images : [],
+    helpful: Number(r.helpful_count) || 0,
+    verified: Boolean(r.is_verified_purchase),
+    date: r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Recently",
+    sellerReply: r.seller_reply || (r.replies && r.replies.length > 0 ? r.replies[0].reply : null)
+  })) : MOCK_REVIEWS;
+
+  const totalReviews = liveSummary?.total_reviews ? Number(liveSummary.total_reviews) : displayReviews.length;
+  const avgRating = liveSummary?.average_rating ? Number(liveSummary.average_rating).toFixed(1) : (displayReviews.reduce((sum, r) => sum + Number(r.rating), 0) / (displayReviews.length || 1)).toFixed(1);
 
   const { addItem: addToCartItem } = useCart();
 
@@ -265,7 +302,7 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
     setZoomPos({ x, y });
   };
 
-  const filteredReviews = [...MOCK_REVIEWS].sort((a, b) => {
+  const filteredReviews = [...displayReviews].sort((a, b) => {
     if (reviewFilter === "highest") return b.rating - a.rating;
     if (reviewFilter === "lowest") return a.rating - b.rating;
     return 0;
@@ -797,7 +834,7 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
             {/* Overall score */}
             <div className="bg-[#faf7f4] p-6 text-center">
               <p className="font-['Playfair_Display'] text-5xl font-bold text-[#1a1a1a] mb-1">{avgRating}</p>
-              <StarRow rating={avgRating} size={16} />
+              <StarRow rating={Number(avgRating)} size={16} />
               <p className="text-xs text-[#6e6e6e] mt-2 tracking-wide">Based on {totalReviews} ratings</p>
             </div>
 
