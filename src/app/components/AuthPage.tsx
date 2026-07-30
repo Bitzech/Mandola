@@ -175,7 +175,9 @@ export default function AuthPage({ onBack }: Props) {
       const reqVerification = errData?.requires_verification || errData?.requiresVerification;
       const code = errData?.code;
       const isPhoneVer = code === "PHONE_NOT_VERIFIED" || errData?.verify_phone;
-      const targetIdentifier = errData?.identifier || (isPhoneVer ? form.phone : form.email);
+      const targetIdentifier = (errData?.identifier && String(errData.identifier).trim())
+        ? String(errData.identifier).trim()
+        : form.email.trim();
 
       if (status === 403 && reqVerification) {
         setStoredLoginCreds({ email: form.email, password: form.password });
@@ -205,7 +207,9 @@ export default function AuthPage({ onBack }: Props) {
     setAuthError("");
     setFieldErrors({});
 
-    const currentIdentifier = activeIdentifier || form.email;
+    const currentIdentifier = (activeIdentifier && activeIdentifier.trim())
+      ? activeIdentifier.trim()
+      : form.email.trim();
 
     try {
       const verifyRes = await verifyOTP(currentIdentifier, otp.trim(), otpType);
@@ -240,7 +244,7 @@ export default function AuthPage({ onBack }: Props) {
         setOtp("");
         if (resData.verify_phone) {
           setOtpType("verify_phone");
-          setActiveIdentifier(resData.identifier || form.phone);
+          setActiveIdentifier(resData.identifier || form.phone || form.email);
           toast.success(resData.message || "Email verified! 6-digit OTP sent to your mobile number.");
         } else if (resData.verify_email) {
           setOtpType("verify_email");
@@ -288,7 +292,7 @@ export default function AuthPage({ onBack }: Props) {
     if (countdown > 0 || loading) return;
     setLoading(true);
     setAuthError("");
-    const targetIdentifier = activeIdentifier || (otpType === "verify_phone" ? form.phone : form.email);
+    const targetIdentifier = activeIdentifier || (otpType === "verify_phone" ? form.phone : form.email) || form.email;
     try {
       await sendOTP(targetIdentifier, otpType);
       toast.success(`A new OTP code has been sent to your ${otpType === "verify_phone" ? "phone number" : "email address"}.`);

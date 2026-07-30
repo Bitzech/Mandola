@@ -26,12 +26,13 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
     setLoading(true);
     setError(null);
     try {
-      const response = await orderService.getOrderById(orderId);
-      const data = response.data || response;
-      if (data) {
+      const response: any = await orderService.getOrderById(orderId);
+      const rawData = response?.data || response;
+      const data = rawData?.order || rawData;
+      if (data && (data.id || data.order_number)) {
         setOrder(data);
       } else {
-        setError("Order not found.");
+        setError("Order details not found.");
       }
     } catch (err: any) {
       const msg = extractErrorMessage(err, "Failed to load order details.");
