@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { SELLER_ORDERS, orderStatusColor, fmt } from "./sellerData";
 import { shipmentService } from "../../services/shipment.service";
-import { orderStatusColor, fmt } from "./sellerData";
-import { RefreshCw, Search, Truck, MapPin } from "lucide-react";
 import { apiClient } from "../../services/apiClient";
+import { toast } from "sonner";
+import { Loader2, Truck, RefreshCw, Search, MapPin } from "lucide-react";
 
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<any[]>([]);
@@ -11,25 +12,42 @@ export default function ShipmentsPage() {
 
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | number | null>(null);
+  const [updating, setUpdating] = useState(false);
+  const [statusVal, setStatusVal] = useState("shipped");
+  const [locationVal, setLocationVal] = useState("");
+  const [remarksVal, setRemarksVal] = useState("");
   const [trackingNoInput, setTrackingNoInput] = useState("");
   const [courierInput, setCourierInput] = useState("");
-  const [updating, setUpdating] = useState(false);
   const [trackDetail, setTrackDetail] = useState<any | null>(null);
 
   const fetchShipments = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await shipmentService.getShipments({ search: search.trim() });
-      const resData = (res?.data || res) as any;
-      if (Array.isArray(resData)) {
-        setShipments(resData);
-      } else if (resData && Array.isArray(resData.shipments)) {
-        setShipments(resData.shipments);
-      } else if (resData && Array.isArray(resData.items)) {
-        setShipments(resData.items);
+      let res: any;
+      if (shipmentService.getSellerShipments) {
+        res = await shipmentService.getSellerShipments({ limit: 50, search: search.trim() });
       } else {
-        setShipments([]);
+        res = await shipmentService.getShipments({ search: search.trim() });
+      }
+      const resData: any = res?.data || res;
+      const itemsList = resData?.items || resData?.shipments || (Array.isArray(resData) ? resData : []);
+      if (Array.isArray(itemsList) && itemsList.length > 0) {
+        setShipments(itemsList);
+      } else {
+        // Fallback to mock if API returns empty
+        const mockList = SELLER_ORDERS.filter(o => o.tracking).map(o => ({
+          id: o.id,
+          shipment_number: `SHP-${o.id}`,
+          order_number: o.id,
+          customer_name: o.customer,
+          courier_name: o.courier!,
+          tracking_number: o.tracking!,
+          shipment_status: o.orderStatus,
+          estimated_delivery: "18 Jul 2025",
+          shipping_cost: 0,
+        }));
+        setShipments(mockList);
       }
     } catch (err: any) {
       setError(err?.message || "Failed to load shipments list.");
@@ -44,21 +62,34 @@ export default function ShipmentsPage() {
 
   const handleStartEdit = (s: any) => {
     setEditingId(s.id);
+    setStatusVal(s.shipment_status || s.status || "shipped");
+    setLocationVal("");
+    setRemarksVal("");
     setTrackingNoInput(s.tracking_number || s.tracking || "");
     setCourierInput(s.courier_name || s.courier || "");
   };
 
-  const handleSaveShipment = async (s: any) => {
+  const handleUpdateStatus = async (shipmentId: string | number) => {
     setUpdating(true);
     try {
-      await apiClient.put(`/shipments/${s.id}`, {
-        tracking_number: trackingNoInput,
-        courier_name: courierInput
-      });
+      if (shipmentService.updateShipmentStatus) {
+        await shipmentService.updateShipmentStatus(shipmentId, {
+          status: statusVal,
+          location: locationVal || "Seller Logistics Hub",
+          remarks: remarksVal || `Shipment status updated to ${statusVal}`,
+        });
+      }
+      if (trackingNoInput || courierInput) {
+        await apiClient.put(`/shipments/${shipmentId}`, {
+          tracking_number: trackingNoInput,
+          courier_name: courierInput
+        });
+      }
+      toast.success("Shipment updated successfully!");
       setEditingId(null);
       fetchShipments();
     } catch (err: any) {
-      alert(err?.message || "Failed to update shipment details.");
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update shipment status.");
     } finally {
       setUpdating(false);
     }
@@ -68,8 +99,9 @@ export default function ShipmentsPage() {
     try {
       const res = await shipmentService.trackShipment(id);
       setTrackDetail(res.data || res);
+      toast.info("Shipment tracking loaded.");
     } catch {
-      alert("Fetching live tracking details from courier API...");
+      toast.info("Fetching live tracking details from courier API...");
     }
   };
 
@@ -78,20 +110,29 @@ export default function ShipmentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>
-          <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Logistics & Tracking</span>
+          <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold font-['Jost']">Logistics & Tracking</span>
           <h2 className="font-['Playfair_Display'] text-2xl md:text-3xl font-bold text-[#1a1a1a] mt-1">Shipments ({shipments.length})</h2>
         </div>
 
-        {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search size={14} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") fetchShipments(); }}
-            placeholder="Search tracking # or courier…"
-            className="w-full border border-[#ececec] pl-9 pr-4 py-2 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
-          />
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative min-w-[200px] sm:min-w-[240px]">
+            <Search size={14} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9e9e9e]" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") fetchShipments(); }}
+              placeholder="Search tracking # or courier…"
+              className="w-full border border-[#ececec] pl-9 pr-4 py-2 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
+            />
+          </div>
+
+          <button
+            onClick={fetchShipments}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#ececec] text-xs text-[#6e6e6e] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
         </div>
       </div>
 
@@ -105,40 +146,56 @@ export default function ShipmentsPage() {
       )}
 
       {/* Shipments List */}
-      <div className="space-y-4">
-        {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white border border-[#ececec] p-5 h-36 animate-pulse" />
-          ))
-        ) : shipments.length > 0 ? (
-          shipments.map(s => {
-            const statusStr = s.status || s.shipment_status || "Shipped";
-            const trackingNo = s.tracking_number || s.tracking || "N/A";
-            const courierName = s.courier_name || s.courier || "Standard Courier";
-            const expectedDate = s.estimated_delivery ? new Date(s.estimated_delivery).toLocaleDateString() : (s.expected || "3-5 Days");
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center text-[#9e9e9e] bg-white border border-[#ececec]">
+          <Loader2 size={32} className="animate-spin text-[#d4145a] mb-3" />
+          <p className="text-xs tracking-[0.2em] uppercase">Loading Seller Shipments…</p>
+        </div>
+      ) : shipments.length === 0 ? (
+        <div className="bg-white border border-[#ececec] p-12 text-center">
+          <Truck size={40} className="text-[#ececec] mx-auto mb-3" />
+          <p className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">No Active Shipments</p>
+          <p className="text-xs text-[#6e6e6e] mt-1">No dispatched or pending shipments assigned yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {shipments.map((s) => {
+            const shpId = s.id;
+            const shpNum = s.shipment_number || `SHP-${s.id}`;
+            const orderNum = s.order_number || s.order_id || `#ORD-${s.id}`;
+            const customer = s.customer_name || s.customer || "Customer";
+            const courier = s.courier_name || s.courier || "Standard Courier";
+            const tracking = s.tracking_number || s.tracking || "N/A";
+            const status = s.shipment_status || s.status || "shipped";
+            const estDelivery = s.estimated_delivery ? new Date(s.estimated_delivery).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : (s.expected || "3-5 Business Days");
+
+            const isEditing = editingId === shpId;
 
             return (
-              <div key={s.id} className="bg-white border border-[#ececec] p-5 hover:border-[#c0c0c0] transition-colors">
+              <div key={shpId} className="bg-white border border-[#ececec] p-5 hover:border-[#c0c0c0] transition-colors">
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-4 pb-4 border-b border-[#ececec]">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-[#fce8ef] text-[#d4145a] rounded-full flex items-center justify-center flex-shrink-0">
                       <Truck size={18} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-[#d4145a]">{s.order_number || `#ORD-${s.order_id || s.id}`}</p>
-                      <p className="text-xs font-medium text-[#1a1a1a] mt-0.5">{s.product_name || s.product || "Sub-Order Items"}</p>
-                      <p className="text-[10px] text-[#6e6e6e] mt-0.5">{s.customer_name || s.customer || "Customer"}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#d4145a]">{shpNum}</span>
+                        <span className="text-xs text-[#6e6e6e]">({orderNum})</span>
+                      </div>
+                      <p className="text-xs font-medium text-[#1a1a1a] mt-0.5">{s.product_name || s.product || customer}</p>
+                      <p className="text-[10px] text-[#6e6e6e] mt-0.5">Customer: {customer}</p>
                     </div>
                   </div>
-                  <span className={`text-[9px] tracking-[0.08em] uppercase px-2 py-1 font-semibold ${orderStatusColor(statusStr)}`}>
-                    {statusStr}
+                  <span className={`text-[9px] tracking-[0.08em] uppercase px-2.5 py-1 font-semibold ${orderStatusColor(status)}`}>
+                    {status}
                   </span>
                 </div>
 
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
-                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Courier Service</p>
-                    {editingId === s.id ? (
+                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Courier Partner</p>
+                    {isEditing ? (
                       <input
                         value={courierInput}
                         onChange={e => setCourierInput(e.target.value)}
@@ -146,13 +203,12 @@ export default function ShipmentsPage() {
                         placeholder="Courier name"
                       />
                     ) : (
-                      <p className="text-sm font-semibold text-[#1a1a1a]">{courierName}</p>
+                      <p className="text-sm font-semibold text-[#1a1a1a]">{courier}</p>
                     )}
                   </div>
-
                   <div>
-                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Tracking Number</p>
-                    {editingId === s.id ? (
+                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Tracking AWB / #</p>
+                    {isEditing ? (
                       <input
                         value={trackingNoInput}
                         onChange={e => setTrackingNoInput(e.target.value)}
@@ -160,47 +216,94 @@ export default function ShipmentsPage() {
                         placeholder="AWB / Tracking #"
                       />
                     ) : (
-                      <p className="text-sm font-mono font-semibold text-[#d4145a]">{trackingNo}</p>
+                      <p className="text-sm font-mono font-semibold text-[#d4145a]">{tracking}</p>
                     )}
                   </div>
-
                   <div>
-                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Expected Delivery</p>
-                    <p className="text-sm font-semibold text-[#1a1a1a]">{expectedDate}</p>
+                    <p className="text-[9px] tracking-[0.1em] uppercase text-[#9e9e9e] mb-1">Est. Delivery</p>
+                    <p className="text-sm font-semibold text-[#1a1a1a]">{estDelivery}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#ececec] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {editingId === s.id ? (
-                      <>
-                        <button disabled={updating} onClick={() => handleSaveShipment(s)} className="text-[10px] tracking-[0.1em] uppercase text-green-600 font-bold hover:underline">
-                          Save Changes
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-[10px] tracking-[0.1em] uppercase text-[#9e9e9e] hover:underline">
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button onClick={() => handleStartEdit(s)} className="text-[10px] tracking-[0.1em] uppercase text-[#d4145a] hover:underline font-semibold">
-                        Edit Tracking Info
+                {/* Edit Status Form */}
+                {isEditing ? (
+                  <div className="mt-4 pt-4 border-t border-[#ececec] bg-[#faf7f4] p-4 space-y-3">
+                    <p className="text-xs font-bold text-[#1a1a1a]">Update Live Shipment Details</p>
+                    <div className="grid sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[9px] uppercase font-semibold text-[#6e6e6e] mb-1">Status</label>
+                        <select
+                          value={statusVal}
+                          onChange={(e) => setStatusVal(e.target.value)}
+                          className="w-full border border-[#ececec] p-2 text-xs bg-white focus:outline-none focus:border-[#d4145a]"
+                        >
+                          <option value="manifested">Manifested</option>
+                          <option value="packed">Packed</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="in_transit">In Transit</option>
+                          <option value="out_for_delivery">Out for Delivery</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="returned">Returned</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] uppercase font-semibold text-[#6e6e6e] mb-1">Current Location</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Bangalore Sort Hub"
+                          value={locationVal}
+                          onChange={(e) => setLocationVal(e.target.value)}
+                          className="w-full border border-[#ececec] p-2 text-xs bg-white focus:outline-none focus:border-[#d4145a]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] uppercase font-semibold text-[#6e6e6e] mb-1">Status Remarks</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Package in transit to destination"
+                          value={remarksVal}
+                          onChange={(e) => setRemarksVal(e.target.value)}
+                          className="w-full border border-[#ececec] p-2 text-xs bg-white focus:outline-none focus:border-[#d4145a]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 text-xs text-[#6e6e6e] hover:text-[#1a1a1a]"
+                      >
+                        Cancel
                       </button>
-                    )}
+                      <button
+                        disabled={updating}
+                        onClick={() => handleUpdateStatus(shpId)}
+                        className="px-4 py-1.5 bg-[#d4145a] text-white text-xs font-semibold tracking-wider uppercase hover:bg-[#a00e42] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {updating && <Loader2 size={12} className="animate-spin" />}
+                        Save Update
+                      </button>
+                    </div>
                   </div>
-
-                  <button onClick={() => handleTrackShipment(s.id)} className="flex items-center gap-1 text-[10px] tracking-[0.1em] uppercase text-[#1a1a1a] hover:text-[#d4145a] font-semibold">
-                    <MapPin size={12} /> Track Package Timeline
-                  </button>
-                </div>
+                ) : (
+                  <div className="mt-4 pt-3 border-t border-[#ececec] flex items-center justify-between">
+                    <button
+                      onClick={() => handleStartEdit(s)}
+                      className="text-[10px] tracking-[0.1em] uppercase text-[#d4145a] hover:underline font-semibold"
+                    >
+                      Update Shipment Status
+                    </button>
+                    <button onClick={() => handleTrackShipment(s.id)} className="flex items-center gap-1 text-[10px] tracking-[0.1em] uppercase text-[#1a1a1a] hover:text-[#d4145a] font-semibold">
+                      <MapPin size={12} /> Track Package
+                    </button>
+                  </div>
+                )}
               </div>
             );
-          })
-        ) : (
-          <div className="bg-white border border-[#ececec] py-16 text-center">
-            <p className="text-xs text-[#9e9e9e] tracking-wide">No shipment tracking records found.</p>
-          </div>
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

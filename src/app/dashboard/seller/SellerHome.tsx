@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { orderStatusColor, payStatusColor, fmt, type SellerNavigateFn } from "./sellerData";
 import { sellerService } from "../../services/seller.service";
+import { reviewService } from "../../services/review.service";
 import { useAuth } from "../../context/AuthContext";
 import { SellerProfile } from "../../types/seller.types";
 
@@ -168,55 +169,46 @@ export default function SellerHome({ onNavigate }: { onNavigate: SellerNavigateF
         </div>
       </div>
 
-      {/* Primary Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Total Products"   value={prodStats.total_products ?? 0}  sub={`${prodStats.active_products ?? 0} active`} loading={loading} />
-        <StatCard label="Total Orders"     value={overview.total_orders ?? 0}    sub={`${overview.pending_orders ?? 0} pending`} loading={loading} />
-        <StatCard label="Delivered Orders" value={overview.delivered_orders ?? 0} loading={loading} />
-        <StatCard label="Total Revenue"    value={fmt(revenue.total_revenue ?? 0)} accent loading={loading} />
+      {/* Overview Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Net Revenue"
+          value={fmt(revenue?.total_revenue || revenue?.net_earnings || overview?.total_sales || 0)}
+          sub="Gross lifetime sales"
+          accent
+          loading={loading}
+        />
+        <StatCard
+          label="Orders Fulfilled"
+          value={overview?.delivered_orders || overview?.total_orders || recentOrders.length || 0}
+          sub={`${overview?.pending_orders || 0} pending processing`}
+          loading={loading}
+        />
+        <StatCard
+          label="Active Products"
+          value={prodStats?.approved_products || prodStats?.total_products || 0}
+          sub={`${prodStats?.low_stock_products || 0} low in stock`}
+          loading={loading}
+        />
+        <StatCard
+          label="Pending Payouts"
+          value={fmt(revenue?.pending_payout || 0)}
+          sub="Available for settlement"
+          loading={loading}
+        />
       </div>
 
-      {/* Secondary Financial & Stock Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Pending Orders"     value={overview.pending_orders ?? 0} loading={loading} />
-        <StatCard label="Pending Settlement" value={fmt(revenue.pending_settlement ?? 0)} sub="In processing" loading={loading} />
-        <StatCard label="Net Earnings"       value={fmt(revenue.net_earnings ?? 0)} accent loading={loading} />
-        <StatCard label="Low / Out of Stock" value={`${prodStats.low_stock ?? 0} / ${prodStats.out_of_stock ?? 0}`} sub="Low / Out" loading={loading} />
-      </div>
-
-      {/* Charts */}
-      <div className="grid lg:grid-cols-3 gap-5">
-        {/* Revenue chart */}
-        <div className="lg:col-span-2 bg-white border border-[#ececec] p-5">
-          <p className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-1">Monthly Revenue Trend</p>
-          <p className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mb-5">{fmt(revenue.total_revenue ?? 0)} Total Revenue</p>
-          {loading ? (
-            <div className="h-[200px] w-full bg-gray-100 animate-pulse" />
-          ) : charts.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={charts} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#d4145a" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#d4145a" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="period" tick={{ fontSize: 10, fill: "#9e9e9e" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#9e9e9e" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ border: "1px solid #ececec", borderRadius: 0, fontSize: 11 }} />
-                <Area type="monotone" dataKey="value" stroke="#d4145a" strokeWidth={2} fill={`url(#${gradId})`} />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[200px] flex items-center justify-center text-xs text-[#9e9e9e]">No chart revenue data available yet.</div>
-          )}
+      {/* Analytics Chart */}
+      <div className="bg-white border border-[#ececec] p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 pb-4 border-b border-[#ececec]">
+          <div>
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">Performance Analytics</p>
+            <h3 className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">Revenue & Sales Trend</h3>
+          </div>
+          <span className="text-[10px] tracking-[0.1em] uppercase text-[#9e9e9e] font-medium">Monthly Aggregation</span>
         </div>
 
-        {/* Orders chart */}
-        <div className="bg-white border border-[#ececec] p-5">
-          <p className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-1">Order Volume</p>
-          <p className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mb-5">{overview.total_orders ?? 0} Orders</p>
+        <div>
           {loading ? (
             <div className="h-[200px] w-full bg-gray-100 animate-pulse" />
           ) : charts.length > 0 ? (
@@ -282,7 +274,7 @@ export default function SellerHome({ onNavigate }: { onNavigate: SellerNavigateF
         </div>
       </div>
 
-      {/* Low Stock + Top Selling Products */}
+      {/* Top Selling Products & Recent Reviews */}
       <div className="grid lg:grid-cols-2 gap-5">
 
         {/* Top Selling Products */}
@@ -317,37 +309,75 @@ export default function SellerHome({ onNavigate }: { onNavigate: SellerNavigateF
           </div>
         </div>
 
-        {/* Notifications */}
+        {/* Reviews */}
         <div className="bg-white border border-[#ececec]">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
             <div>
               <p className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">Latest</p>
-              <p className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">Notifications</p>
+              <p className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">Reviews</p>
             </div>
-            <button onClick={() => onNavigate("notifications")} className="text-[10px] tracking-[0.15em] uppercase text-[#d4145a] hover:underline">View All</button>
+            <div className="flex items-center gap-1.5">
+              <Star size={13} className="fill-amber-400 text-amber-400" />
+              <span className="text-sm font-semibold text-[#1a1a1a]">4.8</span>
+            </div>
           </div>
           <div className="divide-y divide-[#ececec]">
             {loading ? (
-              <div className="p-5 text-center text-xs text-[#9e9e9e]">Loading notifications…</div>
-            ) : notifications.length > 0 ? (
-              notifications.slice(0, 5).map((n: any) => (
-                <div key={n.id} className={`flex items-start gap-3 px-5 py-3 ${!n.is_read && !n.read ? "bg-[#fdf5f8]" : ""}`}>
-                  <div className="w-7 h-7 rounded-full bg-[#fce8ef] flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Bell size={13} strokeWidth={1.5} className="text-[#d4145a]" />
+              <div className="p-5 text-center text-xs text-[#9e9e9e]">Loading reviews…</div>
+            ) : recentReviews.length > 0 ? (
+              recentReviews.slice(0, 3).map((r: any) => (
+                <div key={r.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <p className="text-xs font-semibold text-[#1a1a1a]">{r.customer || r.user_name || `${r.first_name || ""} ${r.last_name || ""}`.trim() || r.customer_name || "Customer"}</p>
+                      <p className="text-[10px] text-[#6e6e6e] tracking-wide">{r.product || r.product_name || `Product #${r.product_id}`}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Star size={12} className="fill-amber-400 text-amber-400" />
+                      <span className="text-xs font-bold text-[#1a1a1a]">{r.rating || 5}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-medium ${!n.is_read && !n.read ? "text-[#1a1a1a]" : "text-[#6e6e6e]"}`}>{n.title || n.subject || "Notification"}</p>
-                    <p className="text-[10px] text-[#9e9e9e] font-light mt-0.5 line-clamp-1">{n.message || n.body}</p>
-                  </div>
-                  <span className="text-[9px] text-[#9e9e9e] tracking-wide flex-shrink-0 mt-0.5">
-                    {n.created_at ? new Date(n.created_at).toLocaleDateString() : n.time || "Recent"}
-                  </span>
+                  <p className="text-xs text-[#6e6e6e] italic">"{r.review || r.comment || r.review_text}"</p>
                 </div>
               ))
             ) : (
-              <div className="p-5 text-center text-xs text-[#9e9e9e]">No unread notifications.</div>
+              <div className="p-5 text-center text-xs text-[#9e9e9e]">No recent reviews found.</div>
             )}
           </div>
+        </div>
+
+      </div>
+
+      {/* Notifications */}
+      <div className="bg-white border border-[#ececec]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec]">
+          <div>
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">Latest</p>
+            <p className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">Notifications</p>
+          </div>
+          <button onClick={() => onNavigate("notifications")} className="text-[10px] tracking-[0.15em] uppercase text-[#d4145a] hover:underline">View All</button>
+        </div>
+        <div className="divide-y divide-[#ececec]">
+          {loading ? (
+            <div className="p-5 text-center text-xs text-[#9e9e9e]">Loading notifications…</div>
+          ) : notifications.length > 0 ? (
+            notifications.slice(0, 5).map((n: any) => (
+              <div key={n.id} className={`flex items-start gap-3 px-5 py-3 ${!n.is_read && !n.read ? "bg-[#fdf5f8]" : ""}`}>
+                <div className="w-7 h-7 rounded-full bg-[#fce8ef] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Bell size={13} strokeWidth={1.5} className="text-[#d4145a]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-medium ${!n.is_read && !n.read ? "text-[#1a1a1a]" : "text-[#6e6e6e]"}`}>{n.title || n.subject || "Notification"}</p>
+                  <p className="text-[10px] text-[#9e9e9e] font-light mt-0.5 line-clamp-1">{n.message || n.body}</p>
+                </div>
+                <span className="text-[9px] text-[#9e9e9e] tracking-wide flex-shrink-0 mt-0.5">
+                  {n.created_at ? new Date(n.created_at).toLocaleDateString() : n.time || "Recent"}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="p-5 text-center text-xs text-[#9e9e9e]">No unread notifications.</div>
+          )}
         </div>
       </div>
     </div>

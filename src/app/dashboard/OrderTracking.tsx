@@ -130,10 +130,11 @@ export default function OrderTracking({ orderId, onNavigate }: { orderId: string
   }
 
   const orderNumStr = order?.order_number || order?.id || `MND-${orderId}`;
-  const delStatus = trackingInfo?.status || order?.delivery_status || order?.deliveryStatus || order?.order_status || "Processing";
+  const shipmentObj = trackingInfo?.shipment || trackingInfo?.data?.shipment || trackingInfo;
+  const delStatus = shipmentObj?.shipment_status || shipmentObj?.status || order?.delivery_status || order?.deliveryStatus || order?.order_status || "Processing";
   const orderDateStr = order?.created_at ? new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Recently";
 
-  if (delStatus.toLowerCase() === "cancelled") {
+  if (String(delStatus).toLowerCase() === "cancelled") {
     return (
       <div>
         <button onClick={() => onNavigate("orders")} className="flex items-center gap-2 text-[10px] tracking-[0.15em] uppercase text-[#6e6e6e] hover:text-[#d4145a] transition-colors mb-6">
@@ -151,35 +152,37 @@ export default function OrderTracking({ orderId, onNavigate }: { orderId: string
   }
 
   // Parse tracking events timeline
-  const trackingEvents = trackingInfo?.events || trackingInfo?.logs || order?.status_history || [];
+  const trackingEvents = trackingInfo?.tracking_logs || trackingInfo?.logs || trackingInfo?.events || order?.status_history || [];
   
   let timeline: any[] = [];
-  if (trackingEvents.length > 0) {
+  if (Array.isArray(trackingEvents) && trackingEvents.length > 0) {
     timeline = trackingEvents.map((evt: any) => ({
       status: evt.status || evt.title || evt.event || "Update",
+      location: evt.location || evt.location_name || "",
+      remarks: evt.remarks || evt.notes || "",
       date: evt.created_at ? new Date(evt.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : evt.date || "—",
       time: evt.created_at ? new Date(evt.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : evt.time || "—",
       done: true,
     }));
   } else {
-    const isDelivered = delStatus.toLowerCase() === "delivered";
-    const isShipped = delStatus.toLowerCase() === "shipped" || isDelivered;
-    const isProcessing = delStatus.toLowerCase() === "processing" || isShipped;
+    const isDelivered = String(delStatus).toLowerCase() === "delivered";
+    const isShipped = String(delStatus).toLowerCase() === "shipped" || String(delStatus).toLowerCase() === "in_transit" || isDelivered;
+    const isProcessing = String(delStatus).toLowerCase() === "processing" || isShipped;
 
     timeline = [
-      { status: "Order Placed", date: orderDateStr, time: "System", done: true },
-      { status: "Payment Confirmed", date: orderDateStr, time: "System", done: true },
-      { status: "Processing", date: isProcessing ? orderDateStr : "—", time: "—", done: isProcessing },
-      { status: "Shipped", date: isShipped ? orderDateStr : "—", time: "—", done: isShipped },
-      { status: "Out for Delivery", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
-      { status: "Delivered", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
+      { status: "Order Placed", location: "System", remarks: "Order placed successfully", date: orderDateStr, time: "System", done: true },
+      { status: "Payment Confirmed", location: "System", remarks: "Payment verified", date: orderDateStr, time: "System", done: true },
+      { status: "Processing", location: "Fulfillment Center", remarks: "Items packed", date: isProcessing ? orderDateStr : "—", time: "—", done: isProcessing },
+      { status: "Shipped", location: "Logistics Hub", remarks: "Dispatched with courier", date: isShipped ? orderDateStr : "—", time: "—", done: isShipped },
+      { status: "Out for Delivery", location: "Local Facility", remarks: "With delivery executive", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
+      { status: "Delivered", location: "Destination", remarks: "Package handed over", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
     ];
   }
 
   const currentStep = Math.max(0, timeline.filter((s: any) => s.done).length - 1);
-  const courierName = trackingInfo?.courier_name || trackingInfo?.courier || order?.courier_name || order?.courier || "Bluedart / DTDC";
-  const trackingNumber = trackingInfo?.tracking_number || trackingInfo?.trackingNumber || order?.tracking_number || order?.trackingNumber || "TRK" + (order?.id || orderId || "12345");
-  const estimatedDelivery = trackingInfo?.estimated_delivery || order?.estimated_delivery || order?.estimatedDelivery || "Within 3-5 days";
+  const courierName = shipmentObj?.courier_name || shipmentObj?.courier || order?.courier_name || order?.courier || "BlueDart Express";
+  const trackingNumber = shipmentObj?.tracking_number || shipmentObj?.trackingNumber || order?.tracking_number || order?.trackingNumber || "TRK" + (order?.id || orderId || "12345");
+  const estimatedDelivery = shipmentObj?.estimated_delivery || order?.estimated_delivery || order?.estimatedDelivery || "Within 3-5 days";
 
   // Address
   const shippingAddr = order?.shipping_address || order?.address;

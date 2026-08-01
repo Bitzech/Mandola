@@ -59,8 +59,7 @@ export default function MyReviews() {
       await reviewService.updateReview(editingId, {
         rating: editForm.rating,
         title: editForm.title,
-        comment: editForm.body,
-        review_text: editForm.body,
+        review: editForm.body,
       });
 
       toast.success("Review updated successfully!");

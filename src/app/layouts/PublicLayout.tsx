@@ -55,7 +55,13 @@ export default function PublicLayout() {
 
   const handleSetCurrentPage = (page: Page) => {
     if (page) {
-      navigate(`/category/${toSlug(page.category)}/${toSlug(page.sub)}`);
+      const catSlug = toSlug(page.category);
+      const subSlug = toSlug(page.sub || "all");
+      if (subSlug === "all" || subSlug === catSlug) {
+        navigate(`/category/${catSlug}`);
+      } else {
+        navigate(`/category/${catSlug}/${subSlug}`);
+      }
     } else {
       navigate("/");
     }
