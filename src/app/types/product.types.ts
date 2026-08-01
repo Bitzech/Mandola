@@ -73,7 +73,9 @@ export interface ProductVariant {
 export interface ProductImage {
   id: number;
   product_id: number;
-  image_url: string;
+  image_url?: string;
+  image?: string;
+  url?: string;
   is_primary?: boolean;
   sort_order?: number;
 }
@@ -84,6 +86,7 @@ export interface Product {
   category_id?: number;
   sub_category_id?: number;
   brand_id?: number;
+  collection_id?: number;
   name: string;
   slug: string;
   sku?: string;
@@ -91,8 +94,16 @@ export interface Product {
   description?: string;
   price: number;
   sale_price?: number;
+  regular_price?: number;
+  mrp?: number;
   stock?: number;
+  stock_quantity?: number;
   thumbnail?: string;
+  primary_image?: string;
+  image?: string;
+  brand_name?: string;
+  category_name?: string;
+  seller_name?: string;
   status?: string;
   approval_status?: string;
   featured?: boolean;
@@ -105,6 +116,9 @@ export interface Product {
   brand?: Brand;
   variants?: ProductVariant[];
   images?: ProductImage[];
+  tags?: string[] | string;
+  meta_title?: string;
+  meta_description?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -112,11 +126,13 @@ export interface Product {
 export interface ProductQueryParams {
   page?: number;
   limit?: number;
-  category_id?: number;
-  sub_category_id?: number;
-  brand_id?: number;
-  collection_id?: number;
+  seller_id?: number | string;
+  category_id?: number | string;
+  sub_category_id?: number | string;
+  brand_id?: number | string;
+  collection_id?: number | string;
   search?: string;
+  status?: string;
   min_price?: number;
   max_price?: number;
   size_id?: number;

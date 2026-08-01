@@ -26,6 +26,9 @@ export default function RoleRoute({ role }: Props) {
   const currentRole = userRole || user?.role;
 
   if (currentRole !== role) {
+    if (currentRole === "admin") return <Navigate to="/admin" replace />;
+    if (currentRole === "seller") return <Navigate to="/seller" replace />;
+    if (currentRole === "customer") return <Navigate to="/customer" replace />;
     return <Navigate to="/unauthorized" replace />;
   }
 

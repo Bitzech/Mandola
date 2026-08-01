@@ -28,7 +28,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const isLogged = isAuthenticated || Boolean(user?.id);
 
   const refreshWishlist = async () => {
-    if (!isLogged) {
+    // Only customer role_id = 3 uses wishlist
+    if (!isLogged || (user && user.role_id !== 3)) {
       setItems([]);
       setWishlistIds(new Set());
       return;

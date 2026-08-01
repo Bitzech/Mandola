@@ -36,51 +36,79 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
     let mounted = true;
     setLoading(true);
 
-    Promise.all([
-      categoryService.getCategoriesWithSubCategories(),
-      categoryService.getBrands(),
-      categoryService.getColors(),
-      categoryService.getSizes(),
-      productService.getProducts({ page: 1, limit: 50 })
-    ])
-      .then(([allCats, allBrands, allColors, allSizes, prodsRes]) => {
+    const categorySlugOrName = (page as any).categorySlug || page.category;
+    const subSlugOrName = (page as any).subCategorySlug || page.sub;
+
+    const cleanCategoryStr = page.category.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanCategorySlug = (categorySlugOrName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    categoryService.getCategoriesWithSubCategories()
+      .then((allCats) => {
         if (!mounted) return;
-        setCategories(allCats);
+        setCategories(allCats || []);
+
+        const match = (allCats || []).find(c => {
+          const cSlugClean = (c.slug || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const cNameClean = (c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          return cSlugClean === cleanCategoryStr ||
+                 cSlugClean === cleanCategorySlug ||
+                 cNameClean === cleanCategoryStr ||
+                 cNameClean === cleanCategorySlug;
+        });
+
+        const activeCat = match || (allCats && allCats.length > 0 ? allCats[0] : null);
+        if (activeCat) {
+          setCurrentCategory(activeCat);
+          if (activeCat.subCategories) {
+            setSubCategories(activeCat.subCategories);
+          }
+        }
+
+        const cleanSubStr = page.sub.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const cleanSubSlug = (subSlugOrName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+        const subMatch = page.sub !== "all" && activeCat?.subCategories?.find(s => {
+          const sSlugClean = (s.slug || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const sNameClean = (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          return sSlugClean === cleanSubStr ||
+                 sSlugClean === cleanSubSlug ||
+                 sNameClean === cleanSubStr ||
+                 sNameClean === cleanSubSlug;
+        });
+
+        // Build product params with matched category / subcategory IDs
+        const queryParams: any = { page: 1, limit: 50 };
+        if (match?.id) queryParams.category_id = match.id;
+        if (subMatch && (subMatch as any).id) queryParams.sub_category_id = (subMatch as any).id;
+
+        return Promise.all([
+          categoryService.getBrands(),
+          categoryService.getColors(),
+          categoryService.getSizes(),
+          productService.getProducts(queryParams)
+        ]);
+      })
+      .then((resArray) => {
+        if (!mounted || !resArray) return;
+        const [allBrands, allColors, allSizes, prodsRes] = resArray;
         if (allBrands && allBrands.length > 0) setLiveBrands(allBrands);
         if (allColors && allColors.length > 0) setLiveColors(allColors);
         if (allSizes && allSizes.length > 0) setLiveSizes(allSizes);
 
         const prodsList = prodsRes?.data?.products || prodsRes?.data?.items || prodsRes?.data || [];
-        if (Array.isArray(prodsList) && prodsList.length > 0) {
+        if (Array.isArray(prodsList)) {
           const mapped: ProductType[] = prodsList.map((item: any) => ({
             id: item.id,
             name: item.name,
+            slug: item.slug,
             price: Number(item.sale_price || item.price),
-            mrp: Number(item.price),
-            img1: item.thumbnail || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=500&h=650&fit=crop",
-            img2: item.secondary_image || item.thumbnail || "https://images.unsplash.com/photo-1562572159-4efc207f5aff?w=500&h=650&fit=crop",
+            mrp: Number(item.price || item.sale_price),
+            img1: item.thumbnail || (item.images && item.images[0]?.image) || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=500&h=650&fit=crop",
+            img2: item.secondary_image || (item.images && item.images[1]?.image) || item.thumbnail || "https://images.unsplash.com/photo-1562572159-4efc207f5aff?w=500&h=650&fit=crop",
             colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
             tag: item.is_best_seller ? "Bestseller" : item.is_trending ? "Trending" : item.is_new_arrival ? "New" : "Featured",
-          }));
+          } as any));
           setLiveProducts(mapped);
-        }
-
-        // Match category by slug or name
-        const match = allCats.find(c =>
-          c.slug.toLowerCase() === page.category.toLowerCase() ||
-          c.name.toLowerCase() === page.category.toLowerCase() ||
-          c.slug.toLowerCase() === page.category.toLowerCase().replace(/\s+/g, "-")
-        );
-
-        if (match) {
-          setCurrentCategory(match);
-          if (match.subCategories) {
-            setSubCategories(match.subCategories);
-          }
-        } else if (allCats.length > 0) {
-          const fallback = allCats[0];
-          setCurrentCategory(fallback);
-          if (fallback.subCategories) setSubCategories(fallback.subCategories);
         }
       })
       .catch((err) => {
@@ -93,7 +121,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
     return () => {
       mounted = false;
     };
-  }, [page.category]);
+  }, [page.category, (page as any).categorySlug, page.sub, (page as any).subCategorySlug]);
 
   const rawProducts = liveProducts.length > 0 ? liveProducts : ALL_PRODUCTS;
   const sorted = [...rawProducts].sort((a, b) => {

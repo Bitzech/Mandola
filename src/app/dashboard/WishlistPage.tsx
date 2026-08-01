@@ -89,11 +89,13 @@ export default function WishlistPage() {
             const isMoving = addingToCart.has(pId);
             const isRemoving = removingId === pId;
 
+            const productTarget = p.slug || p.product_slug || pId;
+
             return (
               <div key={pId || p.wishlist_item_id} className="group relative bg-white border border-[#ececec] overflow-hidden">
                 {/* Image */}
                 <div
-                  onClick={() => navigate(`/product/${pId}`)}
+                  onClick={() => navigate(`/product/${productTarget}`)}
                   className="relative overflow-hidden aspect-[3/4] bg-[#faf7f4] cursor-pointer"
                 >
                   <img src={img} alt={name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -117,7 +119,7 @@ export default function WishlistPage() {
                 {/* Info */}
                 <div className="p-3">
                   <p
-                    onClick={() => navigate(`/product/${pId}`)}
+                    onClick={() => navigate(`/product/${productTarget}`)}
                     className="text-xs font-medium text-[#1a1a1a] leading-snug mb-1.5 truncate cursor-pointer hover:text-[#d4145a] transition-colors"
                   >
                     {name}

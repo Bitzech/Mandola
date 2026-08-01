@@ -1,2 +1,3 @@
-export { apiClient, api, clearAuthStorage } from "./apiClient";
+export { apiClient, api, clearAuthStorage, formatApiErrorMessage } from "./apiClient";
+
 

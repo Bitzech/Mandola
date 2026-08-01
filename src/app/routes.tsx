@@ -51,6 +51,7 @@ export const router = createBrowserRouter([
       { path: "category/:categorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "category/:categorySlug/:subCategorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "product/:productId", element: wrap(<ProductRoutePage />) },
+      { path: "product/slug/:productSlug", element: wrap(<ProductRoutePage />) },
       { path: "checkout", element: wrap(<CheckoutPage />) },
       { path: "search", element: wrap(<HomePage />) },
       { path: "collections", element: wrap(<HomePage />) },

@@ -17,6 +17,8 @@ export default function CategoryRoutePage() {
   const page = {
     category: fromSlug(categorySlug),
     sub: fromSlug(subCategorySlug),
+    categorySlug,
+    subCategorySlug,
   };
 
   return (
@@ -28,7 +30,8 @@ export default function CategoryRoutePage() {
       }
       onProductClick={(p: ProductType) => {
         window.scrollTo(0, 0);
-        navigate(`/product/${p.id}`);
+        const param = (p as any).slug || p.id;
+        navigate(`/product/${param}`);
       }}
     />
   );

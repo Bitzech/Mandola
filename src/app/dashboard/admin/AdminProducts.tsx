@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, CheckCircle, XCircle, RefreshCw, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { fmt } from "./adminData";
 import { adminService } from "../../services/admin.service";
 import { extractErrorMessage } from "../../utils/errorExtractor";
@@ -78,15 +78,27 @@ export default function AdminProducts() {
   };
 
   const handleApproval = async (productId: string | number, nextStatus: string) => {
+    let rejectionReason: string | undefined = undefined;
+    const lowerStatus = nextStatus.toLowerCase();
+
+    if (lowerStatus === "rejected") {
+      const reason = window.prompt("Please enter a reason for rejecting this product:");
+      if (reason === null) return;
+      if (!reason.trim()) {
+        toast.error("Rejection reason is required when rejecting a product.");
+        return;
+      }
+      rejectionReason = reason.trim();
+    }
+
     setUpdatingId(productId);
     try {
-      await adminService.updateProductApproval(productId, nextStatus.toLowerCase());
+      await adminService.updateProductApproval(productId, lowerStatus, rejectionReason);
       toast.success(`Product status updated to ${nextStatus}.`);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === productId ? { ...p, status: nextStatus.toLowerCase(), approval_status: nextStatus.toLowerCase() } : p))
-      );
+      await fetchProducts();
     } catch (err: any) {
-      toast.error(extractErrorMessage(err, "Failed to update product status."));
+      const msg = extractErrorMessage(err, "Failed to update product status.");
+      toast.error(msg);
     } finally {
       setUpdatingId(null);
     }
@@ -143,13 +155,21 @@ export default function AdminProducts() {
                   const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
                   const isUpdating = updatingId === p.id;
                   const pImg = p.thumbnail || p.image || p.img || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&h=120&fit=crop";
+                  const productTarget = p.slug || p.id;
 
                   return (
                     <tr key={p.id} className="border-b border-[#ececec] hover:bg-[#faf7f4] transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <img src={pImg} alt={p.name} className="w-9 h-11 object-cover bg-[#faf7f4] flex-shrink-0" />
-                          <span className="text-xs font-medium text-[#1a1a1a]">{p.name || p.product_name}</span>
+                          <a
+                            href={`/product/${productTarget}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-[#1a1a1a] hover:text-[#d4145a] transition-colors"
+                          >
+                            {p.name || p.product_name}
+                          </a>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-[10px] text-[#9e9e9e] font-mono tracking-wide">{p.sku || `MND-${p.id}`}</td>
@@ -160,6 +180,15 @@ export default function AdminProducts() {
                       <td className="px-4 py-3"><span className={`text-[9px] tracking-[0.08em] uppercase px-2 py-1 font-semibold ${statusStyle(statusFormatted)}`}>{statusFormatted}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <a
+                            href={`/product/${productTarget}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-[#6e6e6e] hover:text-blue-600 transition-colors"
+                            title="View Product Details"
+                          >
+                            <Eye size={13} strokeWidth={1.5} />
+                          </a>
                           {statusRaw.toLowerCase() === "pending" && (
                             <>
                               <button onClick={() => handleApproval(p.id, "approved")} disabled={isUpdating} className="p-1.5 text-[#6e6e6e] hover:text-green-600 transition-colors" title="Approve">

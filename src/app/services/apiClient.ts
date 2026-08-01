@@ -26,7 +26,7 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor: attach Access Token
+// Request interceptor: attach Access Token & log outgoing payload
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token =
@@ -35,15 +35,25 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    if (config.data) {
+      console.log(`[API Outgoing Payload] ${config.method?.toUpperCase()} ${config.url}:`, config.data);
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle token refresh on 401
+// Response interceptor: handle token refresh on 401 & log errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<any>) => {
+    if (error.response) {
+      console.error(
+        `[API Error Response ${error.response.status}] ${error.config?.url}:`,
+        error.response.data
+      );
+    }
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
@@ -149,5 +159,34 @@ export function clearAuthStorage() {
   sessionStorage.removeItem(STORAGE_KEYS.LEGACY_AUTH);
 }
 
+export function formatApiErrorMessage(err: any): string {
+  const data = err?.response?.data;
+  if (data) {
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const details = data.errors
+        .map((e: any) => {
+          if (typeof e === "string") return `- ${e}`;
+          if (e && typeof e === "object") {
+            const fieldPrefix = e.field ? `${e.field}: ` : "";
+            return `- ${fieldPrefix}${e.message || JSON.stringify(e)}`;
+          }
+          return `- ${String(e)}`;
+        })
+        .join("\n");
+      return `Validation Failed:\n${details}`;
+    }
+    if (data.errors && typeof data.errors === "object") {
+      const e = data.errors;
+      const fieldPrefix = e.field ? `${e.field}: ` : "";
+      return `Validation Failed:\n- ${fieldPrefix}${e.message || JSON.stringify(e)}`;
+    }
+    if (data.message && data.message !== "Validation failed") {
+      return data.message;
+    }
+  }
+  return err?.message || "An unexpected error occurred.";
+}
+
 // Backward compatibility export alias
 export const api = apiClient;
+

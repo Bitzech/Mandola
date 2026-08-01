@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { Heart, X } from "lucide-react";
 import { PRODUCTS } from "../data";
 import { useWishlist } from "../context/WishlistContext";
@@ -6,6 +7,7 @@ import { useWishlist } from "../context/WishlistContext";
 type Product = typeof PRODUCTS[0];
 
 export default function ProductCard({ p }: { p: Product }) {
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const [quickView, setQuickView] = useState(false);
   const { isWishlisted, toggleWishlist } = useWishlist();
@@ -13,12 +15,19 @@ export default function ProductCard({ p }: { p: Product }) {
   const isWished = isWishlisted(p.id);
   const discount = Math.round(((p.mrp - p.price) / p.mrp) * 100);
 
+  const handleCardClick = () => {
+    window.scrollTo(0, 0);
+    const param = (p as any).slug || p.id;
+    navigate(`/product/${param}`);
+  };
+
   return (
     <>
       <div
-        className="group relative"
+        className="group relative cursor-pointer"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onClick={handleCardClick}
       >
         <div className="relative overflow-hidden bg-[#faf7f4] aspect-[3/4]">
           <img
@@ -35,7 +44,10 @@ export default function ProductCard({ p }: { p: Product }) {
             -{discount}%
           </span>
           <button
-            onClick={() => toggleWishlist(p)}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleWishlist(p);
+            }}
             className="absolute top-3 right-3 p-1.5 bg-white rounded-full shadow-sm hover:scale-110 transition-transform"
           >
             <Heart
@@ -46,14 +58,17 @@ export default function ProductCard({ p }: { p: Product }) {
           </button>
           <div
             className={`absolute bottom-0 left-0 right-0 bg-[#1a1a1a] text-white text-center py-3 text-xs font-medium tracking-[0.15em] uppercase cursor-pointer transition-transform duration-300 ${hovered ? "translate-y-0" : "translate-y-full"}`}
-            onClick={() => setQuickView(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setQuickView(true);
+            }}
           >
             Quick View
           </div>
         </div>
 
         <div className="pt-4 pb-2">
-          <h3 className="text-sm font-medium text-[#1a1a1a] tracking-wide leading-snug mb-1.5">{p.name}</h3>
+          <h3 className="text-sm font-medium text-[#1a1a1a] tracking-wide leading-snug mb-1.5 group-hover:text-[#d4145a] transition-colors">{p.name}</h3>
           <div className="flex items-center gap-2 mb-2.5">
             <span className="text-base font-semibold text-[#1a1a1a]">₹{p.price.toLocaleString("en-IN")}</span>
             <span className="text-sm text-[#6e6e6e] line-through">₹{p.mrp.toLocaleString("en-IN")}</span>

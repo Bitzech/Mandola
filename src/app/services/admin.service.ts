@@ -39,7 +39,15 @@ export const adminService = {
   },
 
   async updateProductApproval(productId: string | number, status: string, rejection_reason?: string): Promise<ApiResponse<any>> {
-    const response = await apiClient.patch(API_ENDPOINTS.ADMIN.PRODUCT_APPROVAL(productId), { status, rejection_reason });
+    const payload: any = {
+      approval_status: status.toLowerCase()
+    };
+    if (status.toLowerCase() === "rejected" && rejection_reason && rejection_reason.trim()) {
+      payload.rejection_reason = rejection_reason.trim();
+    }
+    console.log("[updateProductApproval Outgoing Payload]:", payload);
+    const response = await apiClient.patch(API_ENDPOINTS.ADMIN.PRODUCT_APPROVAL(productId), payload);
+    console.log("[updateProductApproval Response]:", response.data);
     return response.data;
   },
 
