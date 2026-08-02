@@ -23,13 +23,16 @@ const CartContext = createContext<CartContextType | null>(null);
 const GUEST_CART_KEY = "MANDOLA_GUEST_CART";
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, roleId, role } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [summary, setSummary] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const isLogged = isAuthenticated || Boolean(user?.id);
+  const currentRoleId = Number(roleId || user?.role_id);
+  const currentRole = role || user?.role;
+  const isAdminOrSeller = isLogged && (currentRoleId === 1 || currentRoleId === 2 || currentRole === "admin" || currentRole === "seller");
 
   // Helper to load guest cart from localStorage
   const loadGuestCart = (): any[] => {
@@ -51,6 +54,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshCart = async () => {
+    // Admin / Seller accounts do not use backend customer cart DB
+    if (isAdminOrSeller) {
+      setItems([]);
+      setSummary(null);
+      return;
+    }
+
     if (!isLogged) {
       const guestItems = loadGuestCart();
       setItems(guestItems);
@@ -103,9 +113,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const vId = Number(productVariantId);
     if (!vId || isNaN(vId)) return;
 
-    if (!isLogged) {
-      // Guest cart add
-      const currentGuestItems = loadGuestCart();
+    if (!isLogged || isAdminOrSeller) {
+      // Local cart add for guests and admin/seller preview accounts
+      const currentGuestItems = items;
       const existingIdx = currentGuestItems.findIndex(
         (i) => Number(i.product_variant_id || i.variant_id || i.id) === vId
       );
@@ -129,7 +139,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       setItems(updated);
-      saveGuestCart(updated);
+      if (!isLogged) saveGuestCart(updated);
       toast.success("Added to shopping bag!");
       setIsOpen(true);
       return;
@@ -156,15 +166,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return removeItem(vId);
     }
 
-    if (!isLogged) {
-      const currentGuestItems = loadGuestCart();
-      const updated = currentGuestItems.map((i) =>
+    if (!isLogged || isAdminOrSeller) {
+      const updated = items.map((i) =>
         Number(i.product_variant_id || i.variant_id || i.id) === vId
           ? { ...i, quantity: Number(quantity) }
           : i
       );
       setItems(updated);
-      saveGuestCart(updated);
+      if (!isLogged) saveGuestCart(updated);
       return;
     }
 
@@ -184,13 +193,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const removeItem = async (variantId: number) => {
     const vId = Number(variantId);
 
-    if (!isLogged) {
-      const currentGuestItems = loadGuestCart();
-      const updated = currentGuestItems.filter(
+    if (!isLogged || isAdminOrSeller) {
+      const updated = items.filter(
         (i) => Number(i.product_variant_id || i.variant_id || i.id) !== vId
       );
       setItems(updated);
-      saveGuestCart(updated);
+      if (!isLogged) saveGuestCart(updated);
       toast.success("Item removed from bag.");
       return;
     }
@@ -208,10 +216,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCart = async () => {
-    if (!isLogged) {
+    if (!isLogged || isAdminOrSeller) {
       setItems([]);
       setSummary(null);
-      localStorage.removeItem(GUEST_CART_KEY);
+      if (!isLogged) localStorage.removeItem(GUEST_CART_KEY);
       toast.success("Shopping bag cleared.");
       return;
     }

@@ -21,13 +21,16 @@ const WishlistContext = createContext<WishlistContextType | null>(null);
 const GUEST_WISHLIST_KEY = "MANDOLA_GUEST_WISHLIST";
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, roleId, role } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const isLogged = isAuthenticated || Boolean(user?.id);
+  const currentRoleId = Number(roleId || user?.role_id);
+  const currentRole = role || user?.role;
+  const isAdminOrSeller = isLogged && (currentRoleId === 1 || currentRoleId === 2 || currentRole === "admin" || currentRole === "seller");
 
   // Helper to load guest wishlist from localStorage
   const loadGuestWishlist = (): any[] => {
@@ -49,6 +52,13 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshWishlist = async () => {
+    // Admin / Seller accounts do not use backend customer wishlist DB
+    if (isAdminOrSeller) {
+      setItems([]);
+      setWishlistIds(new Set());
+      return;
+    }
+
     if (!isLogged) {
       // Load guest items from localStorage
       const guestItems = loadGuestWishlist();
@@ -112,8 +122,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     const productId = Number(product.product_id || product.id);
     if (!productId || isNaN(productId)) return;
 
-    if (!isLogged) {
-      // Guest wishlist toggle
+    if (!isLogged || isAdminOrSeller) {
+      // Local wishlist toggle for guests and admin/seller preview accounts
       const currentlyWishlisted = wishlistIds.has(productId);
       let updatedGuestItems: any[];
 
@@ -132,7 +142,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       }
 
       setItems(updatedGuestItems);
-      saveGuestWishlist(updatedGuestItems);
+      if (!isLogged) saveGuestWishlist(updatedGuestItems);
       return;
     }
 
