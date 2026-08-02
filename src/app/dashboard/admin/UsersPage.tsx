@@ -184,7 +184,53 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
+                          {/* Role Change: Customer <-> Seller */}
+                          {Number(u.role_id) === 3 && (
+                            <button
+                              onClick={async () => {
+                                setUpdatingId(u.id);
+                                try {
+                                  await adminService.updateUserRole(u.id, 2);
+                                  toast.success(`User ${u.email || fullName} promoted to Seller!`);
+                                  fetchUsers();
+                                } catch (err: any) {
+                                  toast.error(extractErrorMessage(err, "Failed to promote user role."));
+                                } finally {
+                                  setUpdatingId(null);
+                                }
+                              }}
+                              disabled={isUpdating}
+                              className="px-2 py-1 bg-[#1a1a1a] text-white text-[9px] tracking-[0.1em] uppercase font-semibold hover:bg-[#d4145a] transition-colors disabled:opacity-50"
+                              title="Promote user to Seller (role_id = 2)"
+                            >
+                              Make Seller
+                            </button>
+                          )}
+
+                          {Number(u.role_id) === 2 && (
+                            <button
+                              onClick={async () => {
+                                setUpdatingId(u.id);
+                                try {
+                                  await adminService.updateUserRole(u.id, 3);
+                                  toast.success(`Seller ${u.email || fullName} changed to Customer.`);
+                                  fetchUsers();
+                                } catch (err: any) {
+                                  toast.error(extractErrorMessage(err, "Failed to revert user role."));
+                                } finally {
+                                  setUpdatingId(null);
+                                }
+                              }}
+                              disabled={isUpdating}
+                              className="px-2 py-1 border border-[#ececec] text-[#6e6e6e] text-[9px] tracking-[0.1em] uppercase font-semibold hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors disabled:opacity-50"
+                              title="Revert seller to Customer (role_id = 3)"
+                            >
+                              Make Customer
+                            </button>
+                          )}
+
+                          {/* Block / Unblock User Status */}
                           <button
                             onClick={() => handleToggleStatus(u.id, userStatus)}
                             disabled={isUpdating}

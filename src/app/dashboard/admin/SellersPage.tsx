@@ -217,23 +217,32 @@ export default function SellersPage({ onNavigate: _ }: { onNavigate: AdminNaviga
       ) : (
         <div className="space-y-4">
           {displayed.map((s) => {
-            const statusRaw = s.status || "Pending";
-            const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+            const statusRaw = s.status || s.seller_status || "approved";
+            const isSuspended = statusRaw.toLowerCase() === "suspended";
+            const statusFormatted = isSuspended ? "Suspended" : statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
             const storeNameStr = s.business_name || s.store_name || s.name || "Seller Store";
             const sellerName = `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.contact_person || s.owner_name || "Contact Person";
             const isUpdating = updatingId === s.id;
 
             return (
-              <div key={s.id} className="bg-white border border-[#ececec] p-5">
+              <div key={s.id} className={`p-5 transition-all ${isSuspended ? "bg-amber-50/40 border-2 border-amber-300 shadow-sm" : "bg-white border border-[#ececec]"}`}>
+                {isSuspended && (
+                  <div className="mb-3 bg-amber-100/90 border border-amber-300 px-3.5 py-2 text-xs text-amber-900 font-medium flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-xs">
+                      <AlertTriangle size={14} className="text-amber-700 flex-shrink-0" />
+                      <span><strong className="uppercase tracking-wider">STORE SUSPENDED:</strong> Login access & store operations are blocked for this seller.</span>
+                    </span>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[#fce8ef] text-[#d4145a] flex items-center justify-center font-bold text-base flex-shrink-0">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base flex-shrink-0 ${isSuspended ? "bg-amber-200 text-amber-900" : "bg-[#fce8ef] text-[#d4145a]"}`}>
                       {storeNameStr.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-bold text-[#1a1a1a]">{storeNameStr}</p>
-                        <span className={`text-[9px] tracking-[0.08em] uppercase px-2 py-1 font-semibold ${sellerStatusColor(statusFormatted)}`}>{statusFormatted}</span>
+                        <span className={`text-[9px] tracking-[0.08em] uppercase px-2.5 py-1 font-bold ${isSuspended ? "bg-amber-100 text-amber-900 border border-amber-300" : sellerStatusColor(statusFormatted)}`}>{statusFormatted}</span>
                       </div>
                       <p className="text-xs text-[#6e6e6e] mt-0.5">{sellerName} · {s.email || s.user_email || "No email"}</p>
                       <p className="text-[10px] text-[#9e9e9e] mt-0.5">{s.phone || s.user_phone || "No phone"} · Joined {s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</p>
@@ -253,43 +262,49 @@ export default function SellersPage({ onNavigate: _ }: { onNavigate: AdminNaviga
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#ececec] flex items-center gap-2 flex-wrap">
-                  {statusRaw.toLowerCase() === "pending" && (
-                    <>
+                <div className="mt-4 pt-3 border-t border-[#ececec] flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    {/* Suspend / Reactivate Store Status */}
+                    {statusRaw.toLowerCase() === "suspended" ? (
                       <button
                         onClick={() => handleUpdateStatus(s.id, "approved")}
                         disabled={isUpdating}
                         className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-[9px] tracking-[0.1em] uppercase hover:bg-green-700 transition-colors font-semibold disabled:opacity-50"
                       >
-                        {isUpdating ? <RefreshCw size={11} className="animate-spin" /> : <CheckCircle size={11} strokeWidth={2} />} Approve
+                        {isUpdating ? <RefreshCw size={11} className="animate-spin" /> : <CheckCircle size={11} strokeWidth={2} />} Reactivate Store
                       </button>
+                    ) : (
                       <button
-                        onClick={() => handleUpdateStatus(s.id, "rejected")}
+                        onClick={() => handleUpdateStatus(s.id, "suspended")}
                         disabled={isUpdating}
-                        className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-600 text-[9px] tracking-[0.1em] uppercase hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-2 border border-amber-200 text-amber-700 text-[9px] tracking-[0.1em] uppercase hover:bg-amber-50 transition-colors disabled:opacity-50"
                       >
-                        <XCircle size={11} strokeWidth={2} /> Reject
+                        <AlertTriangle size={11} strokeWidth={2} /> Suspend Store
                       </button>
-                    </>
-                  )}
-                  {statusRaw.toLowerCase() === "approved" && (
-                    <button
-                      onClick={() => handleUpdateStatus(s.id, "suspended")}
-                      disabled={isUpdating}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-amber-200 text-amber-700 text-[9px] tracking-[0.1em] uppercase hover:bg-amber-50 transition-colors disabled:opacity-50"
-                    >
-                      <AlertTriangle size={11} strokeWidth={2} /> Suspend
-                    </button>
-                  )}
-                  {statusRaw.toLowerCase() === "suspended" && (
-                    <button
-                      onClick={() => handleUpdateStatus(s.id, "approved")}
-                      disabled={isUpdating}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] text-white text-[9px] tracking-[0.1em] uppercase hover:bg-[#d4145a] transition-colors font-semibold disabled:opacity-50"
-                    >
-                      <CheckCircle size={11} strokeWidth={2} /> Reactivate
-                    </button>
-                  )}
+                    )}
+                  </div>
+
+                  {/* Account Role Management: Revert to Customer (Normal User) */}
+                  <button
+                    onClick={async () => {
+                      const uId = s.user_id || s.id;
+                      setUpdatingId(s.id);
+                      try {
+                        await adminService.updateUserRole(uId, 3);
+                        toast.success(`Account ${s.email || storeNameStr} reverted to Normal Customer.`);
+                        fetchSellers();
+                      } catch (err: any) {
+                        toast.error(extractErrorMessage(err, "Failed to revert user role."));
+                      } finally {
+                        setUpdatingId(null);
+                      }
+                    }}
+                    disabled={isUpdating}
+                    className="flex items-center gap-1.5 px-3.5 py-2 border border-[#ececec] text-[#6e6e6e] text-[9px] tracking-[0.1em] uppercase hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors font-semibold disabled:opacity-50"
+                    title="Change account role back to normal Customer (role_id = 3)"
+                  >
+                    <UserCheck size={12} strokeWidth={1.5} /> Revert to Normal Customer
+                  </button>
                 </div>
               </div>
             );

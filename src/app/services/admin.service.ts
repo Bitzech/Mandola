@@ -18,6 +18,11 @@ export const adminService = {
     return response.data;
   },
 
+  async updateUserRole(userId: string | number, roleId: number): Promise<ApiResponse<any>> {
+    const response = await apiClient.patch(`/admin/users/${userId}/role`, { role_id: roleId });
+    return response.data;
+  },
+
   async getSellers(params?: any): Promise<PaginatedResponse<any>> {
     const response = await apiClient.get(API_ENDPOINTS.ADMIN.SELLERS, { params });
     return response.data;
