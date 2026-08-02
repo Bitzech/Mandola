@@ -308,16 +308,31 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
         </div>
 
         {/* Products count & Grid */}
-        <div className="flex justify-between items-center mb-6">
-          <p className="text-xs text-[#6e6e6e] tracking-wide font-light">
-            Showing <strong className="text-[#1a1a1a] font-semibold">{sorted.length}</strong> styles
-          </p>
-        </div>
+        {sorted.length > 0 && (
+          <div className="flex justify-between items-center mb-6">
+            <p className="text-xs text-[#6e6e6e] tracking-wide font-light">
+              Showing <strong className="text-[#1a1a1a] font-semibold">{sorted.length}</strong> {sorted.length === 1 ? "style" : "styles"}
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center text-[#9e9e9e]">
             <Loader2 size={32} className="animate-spin text-[#d4145a] mb-3" />
             <p className="text-xs tracking-[0.2em] uppercase">Loading collection styles…</p>
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="py-16 px-6 text-center bg-[#faf7f4] border border-[#ececec] rounded-sm max-w-md mx-auto my-8">
+            <p className="font-['Playfair_Display'] text-xl font-semibold text-[#1a1a1a] mb-2">No Styles Currently Available</p>
+            <p className="text-xs text-[#6e6e6e] mb-6 font-light leading-relaxed">
+              We are working on bringing new collections for this category. Please check back soon or browse our latest new arrivals.
+            </p>
+            <button
+              onClick={onBack}
+              className="px-6 py-3 bg-[#1a1a1a] text-white text-[10px] tracking-[0.2em] uppercase font-semibold hover:bg-[#d4145a] transition-colors"
+            >
+              Explore All Categories
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-7">

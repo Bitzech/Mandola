@@ -243,6 +243,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await authService.verifyOTP(identifier, otp, type);
     const resData = data.data || data;
 
+    if (type === "forgot_password") {
+      setPendingVerification(null);
+      return data;
+    }
+
     if (resData?.requires_verification) {
       const isPhoneVer = resData.verify_phone && !resData.verify_email;
       const targetType = isPhoneVer ? "verify_phone" : "verify_email";

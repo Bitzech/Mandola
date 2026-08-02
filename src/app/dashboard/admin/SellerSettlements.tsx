@@ -41,10 +41,10 @@ export default function SellerSettlements() {
   const handleProcessPayout = async (id: string | number) => {
     setUpdatingId(id);
     try {
-      await adminService.updateSettlementStatus(id, "completed");
+      await adminService.updateSettlementStatus(id, "paid");
       toast.success("Settlement payout processed successfully.");
       setSettlements((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: "completed" } : s))
+        prev.map((s) => (s.id === id ? { ...s, status: "paid" } : s))
       );
     } catch (err: any) {
       toast.error(extractErrorMessage(err, "Failed to process settlement payout."));

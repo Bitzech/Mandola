@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { paymentService } from "../services/payment.service";
-import { orderService } from "../services/order.service";
 import { toast } from "sonner";
 import {
   ShieldCheck, CreditCard, Truck, CheckCircle2, Lock,
-  ArrowLeft, ShoppingBag, Loader2, Sparkles
+  ArrowLeft, Loader2, Sparkles
 } from "lucide-react";
 
 declare global {
@@ -18,8 +16,22 @@ declare global {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, subtotal, clearCart } = useCart();
+  const location = useLocation();
+  const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCart();
   const { user } = useAuth();
+
+  // Support direct Buy Now payload passed via location state (Bug 5)
+  const buyNowItem = (location.state as any)?.buyNowItem;
+  const isBuyNow = Boolean(buyNowItem);
+
+  const items = isBuyNow ? [buyNowItem] : cartItems;
+  const subtotal = isBuyNow
+    ? Number(buyNowItem.sale_price !== undefined ? buyNowItem.sale_price : buyNowItem.price) * (Number(buyNowItem.quantity) || 1)
+    : cartSubtotal;
+
+  // Realtime Price Calculations (Bug 6)
+  const shippingFee = subtotal >= 999 || subtotal === 0 ? 0 : 99;
+  const grandTotal = subtotal + shippingFee;
 
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "cod">("razorpay");
   const [processing, setProcessing] = useState(false);
@@ -56,8 +68,8 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) {
-      toast.error("Your shopping bag is empty!");
+    if (items.length === 0 || grandTotal <= 0) {
+      toast.error("Your order payload is empty or invalid.");
       return;
     }
 
@@ -76,7 +88,7 @@ export default function CheckoutPage() {
 
         const options = {
           key: razorpayKeyId,
-          amount: Math.round(subtotal * 100), // in paise
+          amount: Math.round(grandTotal * 100), // in paise
           currency: "INR",
           name: "Mandola Luxury",
           description: `Payment for ${items.length} fashion item(s)`,
@@ -84,18 +96,19 @@ export default function CheckoutPage() {
           handler: async function (response: any) {
             toast.success("Payment successful! Processing order...");
             
-            // Clear cart & set success order state
             const fakeOrderNumber = "ORD-" + Math.floor(100000 + Math.random() * 900000);
             const completedData = {
               orderNumber: fakeOrderNumber,
               paymentId: response.razorpay_payment_id || "pay_test_" + Math.random().toString(36).substring(7),
-              amount: subtotal,
+              amount: grandTotal,
               customerName: formData.fullName,
               shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
               items: [...items],
             };
 
-            await clearCart();
+            if (!isBuyNow) {
+              await clearCart();
+            }
             setOrderCompleted(completedData);
             setProcessing(false);
           },
@@ -128,13 +141,15 @@ export default function CheckoutPage() {
           const completedData = {
             orderNumber: fakeOrderNumber,
             paymentId: "COD-" + Math.random().toString(36).substring(7).toUpperCase(),
-            amount: subtotal,
+            amount: grandTotal,
             customerName: formData.fullName,
             shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
             items: [...items],
           };
 
-          await clearCart();
+          if (!isBuyNow) {
+            await clearCart();
+          }
           setOrderCompleted(completedData);
           setProcessing(false);
           toast.success("Order placed successfully with Cash on Delivery!");
@@ -200,7 +215,7 @@ export default function CheckoutPage() {
         {/* Header navigation */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#ececec]">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-xs tracking-[0.15em] uppercase text-[#6e6e6e] hover:text-[#d4145a] transition-colors">
-            <ArrowLeft size={16} /> Back to Bag
+            <ArrowLeft size={16} /> Back
           </button>
           <div className="flex items-center gap-2">
             <Lock size={14} className="text-[#d4145a]" />
@@ -359,23 +374,26 @@ export default function CheckoutPage() {
           <div className="lg:col-span-5">
             <div className="bg-[#faf7f4] border border-[#ececec] p-6 sticky top-24">
               <h3 className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a] pb-4 border-b border-[#ececec] mb-4">
-                Order Summary ({items.length} items)
+                Order Summary ({items.length} {items.length === 1 ? "item" : "items"})
               </h3>
 
               <div className="max-h-80 overflow-y-auto space-y-4 pr-1 mb-6">
                 {items.length === 0 ? (
-                  <p className="text-xs text-[#9e9e9e]">Your shopping bag is empty.</p>
+                  <p className="text-xs text-[#9e9e9e]">Your checkout payload is empty.</p>
                 ) : (
-                  items.map((item) => {
+                  items.map((item, idx) => {
                     const price = Number(item.sale_price !== null && item.sale_price !== undefined ? item.sale_price : item.price) || 0;
                     const qty = Number(item.quantity) || 1;
                     const img = item.thumbnail || item.img1 || item.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";
 
                     return (
-                      <div key={item.cart_item_id || item.product_variant_id} className="flex gap-3 text-xs">
+                      <div key={item.cart_item_id || item.product_variant_id || idx} className="flex gap-3 text-xs">
                         <img src={img} alt={item.product_name} className="w-14 h-18 object-cover rounded-sm flex-shrink-0 bg-white" />
                         <div className="flex-1">
                           <p className="font-medium text-[#1a1a1a] line-clamp-1">{item.product_name || item.name}</p>
+                          {(item.size || item.color) && (
+                            <p className="text-[10px] text-[#6e6e6e] mt-0.5">{[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`].filter(Boolean).join(" · ")}</p>
+                          )}
                           <p className="text-[10px] text-[#6e6e6e] mt-0.5">Qty: {qty}</p>
                           <p className="font-semibold text-[#1a1a1a] mt-1">₹{(price * qty).toLocaleString("en-IN")}</p>
                         </div>
@@ -385,30 +403,34 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              {/* Financial Calculation */}
+              {/* Realtime Financial Calculation (Bug 6) */}
               <div className="border-t border-[#ececec] pt-4 space-y-2 text-xs mb-6">
                 <div className="flex justify-between text-[#6e6e6e]">
-                  <span>Bag Subtotal</span>
+                  <span>Subtotal</span>
                   <span>₹{subtotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between text-[#6e6e6e]">
                   <span>Shipping Fee</span>
-                  <span className="text-green-600 font-medium">FREE</span>
+                  {shippingFee === 0 ? (
+                    <span className="text-green-600 font-medium">FREE</span>
+                  ) : (
+                    <span>₹{shippingFee}</span>
+                  )}
                 </div>
                 <div className="flex justify-between text-[#6e6e6e]">
                   <span>GST & Taxes</span>
                   <span className="text-green-600 font-medium">Included</span>
                 </div>
                 <div className="flex justify-between border-t border-[#ececec] pt-3 text-base font-bold text-[#1a1a1a]">
-                  <span>Total Amount</span>
-                  <span className="text-[#d4145a]">₹{subtotal.toLocaleString("en-IN")}</span>
+                  <span>Grand Total</span>
+                  <span className="text-[#d4145a]">₹{grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
               <button
                 type="submit"
                 form="checkout-form"
-                disabled={processing || items.length === 0}
+                disabled={processing || items.length === 0 || grandTotal <= 0}
                 className="w-full bg-[#1a1a1a] text-white py-4 text-xs tracking-[0.2em] uppercase font-bold hover:bg-[#d4145a] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {processing ? (
@@ -419,7 +441,7 @@ export default function CheckoutPage() {
                 ) : (
                   <>
                     <ShieldCheck size={16} />
-                    {paymentMethod === "razorpay" ? `Pay ₹${subtotal.toLocaleString("en-IN")} with Razorpay` : `Place COD Order (₹${subtotal.toLocaleString("en-IN")})`}
+                    {paymentMethod === "razorpay" ? `Pay ₹${grandTotal.toLocaleString("en-IN")} with Razorpay` : `Place COD Order (₹${grandTotal.toLocaleString("en-IN")})`}
                   </>
                 )}
               </button>

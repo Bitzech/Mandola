@@ -82,6 +82,7 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
   const { isWishlisted, toggleWishlist } = useWishlist();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingProds, setLoadingProds] = useState(true);
@@ -100,7 +101,16 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
       .catch((err) => console.error("[HomeSections] Error fetching categories:", err))
       .finally(() => { if (mounted) setLoadingCats(false); });
 
-    // 2. Fetch Products from Live Database
+    // 2. Fetch Collections from Live Database
+    categoryService.getCollections()
+      .then((data) => {
+        if (mounted && data && Array.isArray(data)) {
+          setCollections(data);
+        }
+      })
+      .catch((err) => console.error("[HomeSections] Error fetching collections:", err));
+
+    // 3. Fetch Products from Live Database
     productService.getProducts({ limit: 30 })
       .then((res) => {
         if (mounted) {
@@ -528,6 +538,58 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
           </div>
         )}
       </section>
+
+      {/* ── 4B. CURATED COLLECTIONS (LIVE DATABASE) ── */}
+      {collections.length > 0 && (
+        <section className="py-16 md:py-20 bg-white border-t border-[#ececec]">
+          <div className="max-w-[1440px] mx-auto px-6 md:px-12">
+            <div className="text-center mb-10">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold block mb-1">
+                Curated Edits
+              </span>
+              <h2 className="font-['Playfair_Display'] text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+                Featured Collections
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {collections.slice(0, 4).map((c) => {
+                const cSlug = c.slug || c.name.toLowerCase().replace(/\s+/g, "-");
+                const bgImg = c.image || c.banner || DEFAULT_IMAGE_FALLBACK;
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      window.scrollTo(0, 0);
+                      navigate(`/collection/${cSlug}`);
+                    }}
+                    className="group relative h-64 md:h-72 overflow-hidden cursor-pointer rounded-sm border border-[#ececec]"
+                  >
+                    <img
+                      src={formatImageUrl(bgImg)}
+                      alt={c.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                      <span className="text-[9px] tracking-[0.2em] uppercase font-semibold text-[#fce8ef] block mb-1">
+                        Collection
+                      </span>
+                      <h3 className="font-['Playfair_Display'] text-lg md:text-xl font-bold leading-tight group-hover:text-[#fce8ef] transition-colors">
+                        {c.name}
+                      </h3>
+                      {c.description && (
+                        <p className="text-[10px] text-white/80 line-clamp-1 mt-1 font-light">
+                          {c.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── 5. WHY MANDOLA? (RIGHT BELOW BEST SELLERS - 4 COLUMNS RESPONSIVE) ── */}
       <section className="bg-[#faf7f4] py-16 md:py-24 border-y border-[#ececec]">

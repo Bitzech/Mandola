@@ -316,10 +316,24 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   };
 
   const handleBuyNow = () => {
-    if (!selectedSize) return;
-    onAddToBag();
-    setBoughtNow(true);
-    setTimeout(() => setBoughtNow(false), 2000);
+    if (!selectedSize) {
+      toast.error("Please select a size first");
+      return;
+    }
+    const variantId = (product as any).default_variant_id || (product as any).variant_id || product.id || 1;
+    const buyNowItem = {
+      product_variant_id: Number(variantId),
+      product_name: product.name,
+      quantity: qty,
+      price: product.price,
+      sale_price: product.price,
+      thumbnail: product.img1,
+      size: selectedSize,
+      color: selectedColor || "",
+    };
+
+    window.scrollTo(0, 0);
+    navigate("/checkout", { state: { buyNowItem } });
   };
 
   const handlePincodeCheck = () => {

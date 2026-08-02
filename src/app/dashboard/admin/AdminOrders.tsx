@@ -79,10 +79,12 @@ export default function AdminOrders() {
             const orderNum = o.order_number || `ORD-${o.id}`;
             const orderStatus = o.order_status || o.status || "Pending";
             const payStatus = o.payment_status || "Paid";
-            const orderTotal = o.grand_total || o.total_amount || o.subtotal || 0;
+            const orderTotal = Number(o.grand_total ?? o.total_amount ?? o.amount ?? o.subtotal ?? 0);
             const customerName = `${o.first_name || ""} ${o.last_name || ""}`.trim() || o.customer_name || o.email || "Customer";
             const sellerName = o.seller_name || o.store_name || "Mandola Seller";
             const itemImg = o.thumbnail || o.product_image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&h=120&fit=crop";
+            const rawDate = o.created_at || o.placed_at || o.date;
+            const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
             return (
               <div key={o.id} className="bg-white border border-[#ececec] p-5">
@@ -93,7 +95,7 @@ export default function AdminOrders() {
                       <p className="text-xs font-bold text-[#d4145a]">{orderNum}</p>
                       <p className="text-xs font-medium text-[#1a1a1a] mt-0.5">Order items ({o.items_count || 1})</p>
                       <p className="text-[10px] text-[#6e6e6e] mt-0.5">Customer: {customerName} · Seller: {sellerName}</p>
-                      <p className="text-[10px] text-[#9e9e9e]">{o.created_at ? new Date(o.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
+                      <p className="text-[10px] text-[#9e9e9e]">{formattedDate}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
