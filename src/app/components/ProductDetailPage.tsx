@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import {
   Heart, Star, Truck, RefreshCw, Shield, Share2, ZoomIn,
   X, Check, MapPin, RotateCcw, BadgeCheck, Headphones,
@@ -15,6 +16,7 @@ import { reviewService } from "../services/review.service";
 import { Size, Color } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
+import { formatImageUrl } from "../utils/imageUrl";
 
 interface Props {
   product: ProductType;
@@ -153,6 +155,7 @@ function ProductSlider({
 }
 
 export default function ProductDetailPage({ product, onBack, onProductClick, onAddToBag }: Props) {
+  const navigate = useNavigate();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const isWished = isWishlisted(product.id);
   const [selectedSize, setSelectedSize] = useState("");
@@ -196,7 +199,7 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
     if (product?.id) {
       productService.getProductImages(product.id).then(res => {
         if (mounted && res.data && res.data.length > 0) {
-          const imgs = res.data.map((i: any) => i.image || i.image_url);
+          const imgs = res.data.map((i: any) => formatImageUrl(i.image || i.image_url));
           if (imgs.length > 0) setLiveImages(imgs);
         }
       }).catch(() => {});
@@ -248,9 +251,42 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const sizes = liveSizes.length > 0
     ? liveSizes.map(s => s.name || s.code)
     : ["XS", "S", "M", "L", "XL", "XXL"];
-  const related = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 4);
-  const recentlyViewed = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(4, 8);
-  const similar = ALL_PRODUCTS.filter(p => p.id !== product.id).slice(0, 6);
+  const [liveRelatedProducts, setLiveRelatedProducts] = useState<ProductType[]>([]);
+
+  useEffect(() => {
+    productService.getProducts({ limit: 12 })
+      .then(res => {
+        const raw = res?.data?.products || res?.data?.items || res?.data || [];
+        if (Array.isArray(raw)) {
+          const mapped = raw.map((item: any) => {
+            const raw1 = item.thumbnail || (item.images && item.images[0]?.image) || (item.images && item.images[0]?.image_url);
+            const raw2 = item.secondary_image || (item.images && item.images[1]?.image) || (item.images && item.images[1]?.image_url) || raw1;
+            return {
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              price: Number(item.sale_price || item.price),
+              mrp: Number(item.price || item.sale_price),
+              img1: formatImageUrl(raw1),
+              img2: formatImageUrl(raw2),
+              colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
+              tag: item.is_best_seller ? "Bestseller" : item.is_trending ? "Trending" : item.is_new_arrival ? "New" : "Featured",
+            } as any;
+          });
+          setLiveRelatedProducts(mapped);
+        }
+      })
+      .catch(() => {});
+  }, [product?.id]);
+
+  const mapWithSlug = (p: ProductType) => ({
+    ...p,
+    slug: (p as any).slug || p.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+  });
+  const liveList = liveRelatedProducts.filter(p => p.id !== product.id).map(mapWithSlug);
+  const related = liveList.slice(0, 4);
+  const recentlyViewed = liveList.slice(4, 8);
+  const similar = liveList.slice(0, 6);
   const displayReviews = liveReviews.length > 0 ? liveReviews.map(r => ({
     id: r.id,
     name: r.user_name || `${r.first_name || ""} ${r.last_name || ""}`.trim() || r.name || "Verified Customer",
@@ -395,11 +431,9 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
       {/* Breadcrumb */}
       <div className="px-6 md:px-12 py-3.5 border-b border-[#ececec] bg-[#faf7f4]">
         <nav className="flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] max-w-[1440px] mx-auto flex-wrap">
-          <button onClick={onBack} className="hover:text-[#d4145a] transition-colors">Home</button>
+          <button onClick={() => navigate("/")} className="hover:text-[#d4145a] transition-colors">Home</button>
           <ChevronRight size={10} className="flex-shrink-0" />
-          <button onClick={onBack} className="hover:text-[#d4145a] transition-colors">Ethnic Wear</button>
-          <ChevronRight size={10} className="flex-shrink-0" />
-          <button onClick={onBack} className="hover:text-[#d4145a] transition-colors">Kurtas &amp; Sets</button>
+          <button onClick={() => navigate(`/category/${(product as any).category_slug || "ethnic-wear"}`)} className="hover:text-[#d4145a] transition-colors">{(product as any).category_name || "Ethnic Wear"}</button>
           <ChevronRight size={10} className="flex-shrink-0" />
           <span className="text-[#1a1a1a] font-semibold truncate max-w-[200px]">{product.name}</span>
         </nav>

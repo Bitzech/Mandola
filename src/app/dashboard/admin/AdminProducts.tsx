@@ -155,7 +155,7 @@ export default function AdminProducts() {
                   const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
                   const isUpdating = updatingId === p.id;
                   const pImg = p.thumbnail || p.image || p.img || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&h=120&fit=crop";
-                  const productTarget = p.slug || p.id;
+                  const productTarget = p.slug || (p.name || p.product_name ? (p.name || p.product_name).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : p.id);
 
                   return (
                     <tr key={p.id} className="border-b border-[#ececec] hover:bg-[#faf7f4] transition-colors">

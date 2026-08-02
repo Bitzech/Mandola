@@ -146,7 +146,7 @@ export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
           ) : (
             items.map((p: any) => {
               const pId = Number(p.product_id || p.id);
-              const target = p.slug || p.product_slug || pId;
+              const target = p.slug || p.product_slug || (p.name || p.product_name ? (p.name || p.product_name).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : pId);
               const name = p.product_name || p.name || "Fashion Style";
               const price = Number(p.sale_price || p.base_price || p.price) || 0;
               const img = p.thumbnail || p.product_image || p.img1 || p.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";

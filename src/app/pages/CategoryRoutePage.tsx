@@ -30,7 +30,7 @@ export default function CategoryRoutePage() {
       }
       onProductClick={(p: ProductType) => {
         window.scrollTo(0, 0);
-        const param = (p as any).slug || p.id;
+        const param = (p as any).slug || (p.name ? p.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : p.id);
         navigate(`/product/${param}`);
       }}
     />

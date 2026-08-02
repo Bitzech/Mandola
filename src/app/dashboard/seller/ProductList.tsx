@@ -5,6 +5,7 @@ import { productService } from "../../services/product.service";
 import { categoryService } from "../../services/category.service";
 import { Category, Product } from "../../types/product.types";
 import { useAuth } from "../../context/AuthContext";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 const statusStyle = (s?: string) => {
   const status = (s || "").toLowerCase();
@@ -220,7 +221,8 @@ export default function ProductList({ onNavigate }: { onNavigate: SellerNavigate
               ))
             ) : products.length > 0 ? (
               products.map(p => {
-                const imgUrl = (p.images && p.images.length > 0 ? (p.images.find(img => img.is_primary)?.image || p.images[0]?.image) : p.image || p.primary_image) || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=70";
+                const rawImg = p.thumbnail || (p.images && p.images.length > 0 ? (p.images.find(img => img.is_primary)?.image || p.images[0]?.image) : p.image || p.primary_image);
+                const imgUrl = formatImageUrl(rawImg);
                 const priceVal = Number(p.sale_price || p.price || 0);
                 const mrpVal = Number(p.mrp || p.regular_price || p.price || 0);
                 const stockVal = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0);

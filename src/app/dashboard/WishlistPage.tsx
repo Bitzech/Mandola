@@ -89,7 +89,7 @@ export default function WishlistPage() {
             const isMoving = addingToCart.has(pId);
             const isRemoving = removingId === pId;
 
-            const productTarget = p.slug || p.product_slug || pId;
+            const productTarget = p.slug || p.product_slug || (name ? name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : pId);
 
             return (
               <div key={pId || p.wishlist_item_id} className="group relative bg-white border border-[#ececec] overflow-hidden">

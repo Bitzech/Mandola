@@ -1,7 +1,15 @@
 import { useNavigate } from "react-router";
 import { ArrowLeft, Search } from "lucide-react";
 
-export default function NotFoundPage() {
+interface NotFoundProps {
+  title?: string;
+  description?: string;
+}
+
+export default function NotFoundPage({
+  title = "Page Not Found",
+  description = "The page you're looking for doesn't exist or has been moved. Let's get you back to something beautiful."
+}: NotFoundProps) {
   const navigate = useNavigate();
 
   return (
@@ -11,11 +19,10 @@ export default function NotFoundPage() {
           404
         </p>
         <h1 className="font-['Playfair_Display'] text-2xl md:text-3xl font-bold text-[#1a1a1a] -mt-4 mb-3">
-          Page Not Found
+          {title}
         </h1>
         <p className="text-sm text-[#6e6e6e] leading-relaxed mb-8 font-light">
-          The page you&apos;re looking for doesn&apos;t exist or has been moved.
-          Let&apos;s get you back to something beautiful.
+          {description}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button

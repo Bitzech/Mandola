@@ -5,8 +5,8 @@ import { ALL_PRODUCTS } from "../data";
 import type { Page, ProductType } from "../data";
 import { categoryService } from "../services/category.service";
 import { Category, SubCategory, Brand, Color, Size } from "../types/product.types";
-
 import { productService } from "../services/product.service";
+import { formatImageUrl } from "../utils/imageUrl";
 
 interface Props {
   page: NonNullable<Page>;
@@ -77,9 +77,19 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
         });
 
         // Build product params with matched category / subcategory IDs
-        const queryParams: any = { page: 1, limit: 50 };
-        if (match?.id) queryParams.category_id = match.id;
-        if (subMatch && (subMatch as any).id) queryParams.sub_category_id = (subMatch as any).id;
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchParam = urlParams.get("search") || (page.category === "search" ? page.sub : "");
+
+        const queryParams: any = { page: 1, limit: 100 };
+        if (match?.id && page.category !== "all" && page.category !== "search") {
+          queryParams.category_id = match.id;
+        }
+        if (subMatch && (subMatch as any).id) {
+          queryParams.sub_category_id = (subMatch as any).id;
+        }
+        if (searchParam && searchParam !== "all") {
+          queryParams.search = searchParam;
+        }
 
         return Promise.all([
           categoryService.getBrands(),
@@ -97,17 +107,21 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
 
         const prodsList = prodsRes?.data?.products || prodsRes?.data?.items || prodsRes?.data || [];
         if (Array.isArray(prodsList)) {
-          const mapped: ProductType[] = prodsList.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            slug: item.slug,
-            price: Number(item.sale_price || item.price),
-            mrp: Number(item.price || item.sale_price),
-            img1: item.thumbnail || (item.images && item.images[0]?.image) || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=500&h=650&fit=crop",
-            img2: item.secondary_image || (item.images && item.images[1]?.image) || item.thumbnail || "https://images.unsplash.com/photo-1562572159-4efc207f5aff?w=500&h=650&fit=crop",
-            colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
-            tag: item.is_best_seller ? "Bestseller" : item.is_trending ? "Trending" : item.is_new_arrival ? "New" : "Featured",
-          } as any));
+          const mapped: ProductType[] = prodsList.map((item: any) => {
+            const raw1 = item.thumbnail || (item.images && item.images[0]?.image) || (item.images && item.images[0]?.image_url);
+            const raw2 = item.secondary_image || (item.images && item.images[1]?.image) || (item.images && item.images[1]?.image_url) || raw1;
+            return {
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              price: Number(item.sale_price || item.price),
+              mrp: Number(item.price || item.sale_price),
+              img1: formatImageUrl(raw1),
+              img2: formatImageUrl(raw2),
+              colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
+              tag: item.is_best_seller ? "Bestseller" : item.is_trending ? "Trending" : item.is_new_arrival ? "New" : "Featured",
+            } as any;
+          });
           setLiveProducts(mapped);
         }
       })
@@ -123,7 +137,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
     };
   }, [page.category, (page as any).categorySlug, page.sub, (page as any).subCategorySlug]);
 
-  const rawProducts = liveProducts.length > 0 ? liveProducts : ALL_PRODUCTS;
+  const rawProducts = liveProducts;
   const sorted = [...rawProducts].sort((a, b) => {
     if (sortBy === "price-asc") return a.price - b.price;
     if (sortBy === "price-desc") return b.price - a.price;

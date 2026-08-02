@@ -8,6 +8,7 @@ import { categoryService } from "../services/category.service";
 import { productService } from "../services/product.service";
 import { Category } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
+import { formatImageUrl } from "../utils/imageUrl";
 import type { Page } from "../data";
 
 interface Props {
@@ -131,7 +132,7 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
           name: c.name,
           slug: slug,
           tagline: c.description || "Explore live collection",
-          img: c.image && c.image.startsWith("http") ? c.image : defaultImg,
+          img: c.image ? formatImageUrl(c.image) : defaultImg,
         };
       });
     }
@@ -157,12 +158,11 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
     const mrpVal = mrpNum > priceVal ? mrpNum : Math.round(priceVal * 1.3);
     const discount = Math.round(((mrpVal - priceVal) / mrpVal) * 100);
 
-    const img1 = p.thumbnail && p.thumbnail.startsWith("http")
-      ? p.thumbnail
-      : DEFAULT_IMAGE_FALLBACK;
-    const img2 = (p as any).secondary_image && (p as any).secondary_image.startsWith("http")
-      ? (p as any).secondary_image
-      : img1;
+    const raw1 = p.thumbnail || (p.images && p.images[0]?.image) || (p.images && p.images[0]?.image_url);
+    const raw2 = (p as any).secondary_image || (p.images && p.images[1]?.image) || (p.images && p.images[1]?.image_url) || raw1;
+
+    const img1 = formatImageUrl(raw1);
+    const img2 = formatImageUrl(raw2);
 
     let tag = "";
     if (Boolean(p.is_best_seller)) tag = "Bestseller";
@@ -178,7 +178,7 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
       img1: img1,
       img2: img2,
       tag: tag,
-      slug: p.slug || `product-${p.id}`,
+      slug: p.slug || (p.name ? p.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : `product-${p.id}`),
       raw: p,
     };
   };
@@ -199,8 +199,8 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleProductClick = (productId: string | number) => {
-    navigate(`/product/${productId}`);
+  const handleProductClick = (target: string | number) => {
+    navigate(`/product/${target}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -384,7 +384,7 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
                     className="group cursor-pointer flex flex-col"
                     onMouseEnter={() => setHoveredProdId(p.id)}
                     onMouseLeave={() => setHoveredProdId(null)}
-                    onClick={() => handleProductClick(p.id)}
+                    onClick={() => handleProductClick(p.slug || p.id)}
                   >
                     <div className="relative overflow-hidden aspect-[3/4] bg-white rounded-sm shadow-sm">
                       <img
@@ -476,7 +476,7 @@ export default function HomeSections({ setCurrentPage, email, setEmail, subscrib
                   className="group cursor-pointer flex flex-col"
                   onMouseEnter={() => setHoveredProdId(`bs-${p.id}`)}
                   onMouseLeave={() => setHoveredProdId(null)}
-                  onClick={() => handleProductClick(p.id)}
+                  onClick={() => handleProductClick(p.slug || p.id)}
                 >
                   <div className="relative overflow-hidden aspect-[3/4] bg-[#faf7f4] rounded-sm shadow-sm">
                     <img

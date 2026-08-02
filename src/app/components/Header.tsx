@@ -215,7 +215,14 @@ export default function Header({
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === "Escape" && setSearchOpen(false)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  setSearchOpen(false);
+                  navigate(`/category/search/all?search=${encodeURIComponent(searchQuery.trim())}`);
+                } else if (e.key === "Escape") {
+                  setSearchOpen(false);
+                }
+              }}
               placeholder="Search for dresses, sarees, co-ords…"
               className="flex-1 text-sm text-[#1a1a1a] placeholder-[#b0b0b0] bg-transparent border-none outline-none tracking-wide"
             />

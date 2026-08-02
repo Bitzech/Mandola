@@ -36,6 +36,49 @@ export type SellerOrder = {
   courier?: string;
 };
 
+export const SELLER_ORDERS: SellerOrder[] = [
+  {
+    id: "ORD-8821",
+    customer: "Priya Sharma",
+    product: "Sanskrit Devotional Copper Diya",
+    productImg: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=200",
+    qty: 2,
+    amount: 1499,
+    paymentStatus: "Paid",
+    orderStatus: "Shipped",
+    date: "14 Jul 2025",
+    address: "B-402, Green Acres, Powai, Mumbai - 400076",
+    tracking: "IND9823411",
+    courier: "Delhivery",
+  },
+  {
+    id: "ORD-8822",
+    customer: "Amitav Ghosh",
+    product: "Handcrafted Brass Bell",
+    productImg: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=200",
+    qty: 1,
+    amount: 899,
+    paymentStatus: "Paid",
+    orderStatus: "Delivered",
+    date: "12 Jul 2025",
+    address: "12/A Park Street, Kolkata - 700016",
+    tracking: "IND9823412",
+    courier: "BlueDart",
+  },
+  {
+    id: "ORD-8823",
+    customer: "Sunita Reddy",
+    product: "Vedic Chanting Incense Set",
+    productImg: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=200",
+    qty: 3,
+    amount: 650,
+    paymentStatus: "Pending",
+    orderStatus: "Pending",
+    date: "15 Jul 2025",
+    address: "Plot 45, Jubilee Hills, Hyderabad - 500033",
+  },
+];
+
 export type SellerProduct = {
   id: string;
   name: string;

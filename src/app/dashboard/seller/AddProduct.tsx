@@ -149,6 +149,13 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
             setMetaTitle(p.meta_title || "");
             setMetaDesc(p.meta_description || "");
 
+            if (p.sizes && Array.isArray(p.sizes)) {
+              setSelectedSizes(p.sizes.map(String));
+            }
+            if (p.colors && Array.isArray(p.colors)) {
+              setSelectedColors(p.colors.map(String));
+            }
+
             if (p.images && Array.isArray(p.images)) {
               setImages(p.images.map((img: any) => typeof img === "string" ? img : (img.image || img.url || img.image_url)));
             } else if (p.image || p.thumbnail) {
@@ -259,6 +266,7 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
       price: Number(price || 0),
       regular_price: Number(price || 0),
       stock_quantity: Number(stock || 0),
+      stock: Number(stock || 0),
       status: targetStatus,
       tags: tags.split(",").map(t => t.trim()).filter(Boolean),
       meta_title: metaTitle.trim() || undefined,
