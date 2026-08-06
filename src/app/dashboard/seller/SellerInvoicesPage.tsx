@@ -13,7 +13,10 @@ export default function SellerInvoicesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await invoiceService.getInvoices({ search: search.trim() });
+      const params: any = { limit: 50 };
+      if (search.trim()) params.search = search.trim();
+
+      const res = await invoiceService.getInvoices(params);
       const resData = (res?.data || res) as any;
       if (Array.isArray(resData)) {
         setInvoices(resData);

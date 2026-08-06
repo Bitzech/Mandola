@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import { Camera, RefreshCw, Upload, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Camera, RefreshCw, Upload, Save, CheckCircle2, AlertCircle, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { sellerService } from "../../services/seller.service";
 import { useAuth } from "../../context/AuthContext";
 import { extractErrorMessage } from "../../utils/errorExtractor";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 export default function SellerProfile() {
   const { user } = useAuth();
@@ -38,9 +39,42 @@ export default function SellerProfile() {
   const [ifscCode, setIfscCode] = useState("");
   const [upiId, setUpiId] = useState("");
 
-  // Media
+  // Media & Documents
   const [logo, setLogo] = useState("");
   const [banner, setBanner] = useState("");
+  const [gstDocument, setGstDocument] = useState("");
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: "logo" | "banner" | "doc") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/") && target !== "doc") {
+      toast.error("Please select a valid image file (JPG, PNG, WEBP).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const result = evt.target?.result as string;
+      if (result) {
+        if (target === "logo") {
+          setLogo(result);
+          toast.success("Logo photo selected.");
+        } else if (target === "banner") {
+          setBanner(result);
+          toast.success("Header banner selected.");
+        } else if (target === "doc") {
+          setGstDocument(result);
+          toast.success("Business document attached.");
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Raw initial copy for reset
   const [initialData, setInitialData] = useState<any>(null);
@@ -193,44 +227,112 @@ export default function SellerProfile() {
       )}
 
       <form onSubmit={handleSave} className="space-y-8">
-        {/* Banner Section */}
+        {/* Hidden File Inputs */}
+        <input
+          type="file"
+          ref={logoInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileUpload(e, "logo")}
+        />
+        <input
+          type="file"
+          ref={bannerInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileUpload(e, "banner")}
+        />
+        <input
+          type="file"
+          ref={docInputRef}
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={(e) => handleFileUpload(e, "doc")}
+        />
+
+        {/* Store Branding & Media */}
         <div className="bg-white border border-[#ececec] p-6">
-          <h3 className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#1a1a1a] mb-4 pb-3 border-b border-[#ececec]">
-            Store Branding & Media
+          <h3 className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#1a1a1a] mb-4 pb-3 border-b border-[#ececec] flex items-center justify-between">
+            <span>Store Branding & Media</span>
+            <span className="text-[9px] text-[#9e9e9e] font-normal">Formats: JPG, PNG, WEBP</span>
           </h3>
 
-          <div className="relative h-44 bg-[#faf7f4] border border-[#ececec] mb-5 overflow-hidden group">
-            <img src={banner} alt="Store Banner" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white">
-              <Camera size={20} strokeWidth={1.5} className="mb-1" />
+          <div className="relative h-48 bg-[#faf7f4] border border-[#ececec] mb-6 overflow-hidden group">
+            <img src={formatImageUrl(banner)} alt="Store Banner" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
+              <Camera size={24} strokeWidth={1.5} />
               <span className="text-[10px] tracking-[0.2em] uppercase font-semibold">Store Header Banner</span>
+              <button
+                type="button"
+                onClick={() => bannerInputRef.current?.click()}
+                className="mt-1 px-4 py-2 bg-white text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase font-bold hover:bg-[#d4145a] hover:text-white transition-colors flex items-center gap-1.5 shadow-md"
+              >
+                <Upload size={12} />
+                Upload New Banner
+              </button>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Logo Section */}
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Store Logo URL</label>
-              <div className="flex items-center gap-3">
-                <img src={logo} alt="Logo Preview" className="w-10 h-10 rounded-full object-cover border-2 border-[#d4145a] flex-shrink-0" />
-                <input
-                  type="text"
-                  value={logo}
-                  onChange={e => setLogo(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full border border-[#ececec] px-3 py-2.5 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
-                />
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Store Logo</label>
+              <div className="flex items-center gap-4">
+                <div className="relative group flex-shrink-0">
+                  <img
+                    src={formatImageUrl(logo)}
+                    alt="Logo Preview"
+                    className="w-14 h-14 rounded-full object-cover border-2 border-[#d4145a] shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Change logo"
+                  >
+                    <Camera size={14} />
+                  </button>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="px-3 py-2 border border-[#1a1a1a] text-[#1a1a1a] text-[10px] tracking-[0.12em] uppercase font-semibold hover:bg-[#1a1a1a] hover:text-white transition-colors flex items-center gap-1.5"
+                  >
+                    <Upload size={12} />
+                    Upload Logo Photo
+                  </button>
+                  <input
+                    type="text"
+                    value={logo}
+                    onChange={e => setLogo(e.target.value)}
+                    placeholder="Or paste external logo URL (https://...)"
+                    className="w-full border border-[#ececec] px-3 py-2 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
+                  />
+                </div>
               </div>
             </div>
 
+            {/* Banner URL / Upload */}
             <div>
-              <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Header Banner URL</label>
-              <input
-                type="text"
-                value={banner}
-                onChange={e => setBanner(e.target.value)}
-                placeholder="https://..."
-                className="w-full border border-[#ececec] px-3 py-2.5 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
-              />
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">Header Banner Image</label>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="w-full py-2 border border-[#1a1a1a] text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase font-semibold hover:bg-[#1a1a1a] hover:text-white transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={13} />
+                  Upload Banner Image From Computer
+                </button>
+                <input
+                  type="text"
+                  value={banner}
+                  onChange={e => setBanner(e.target.value)}
+                  placeholder="Or paste external banner URL (https://...)"
+                  className="w-full border border-[#ececec] px-3 py-2 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] bg-white"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -327,6 +429,25 @@ export default function SellerProfile() {
                 maxLength={10}
                 className="w-full border border-[#ececec] px-4 py-3 text-sm text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] transition-colors bg-white font-mono uppercase"
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e] mb-2">GST Certificate / Registration Document</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => docInputRef.current?.click()}
+                  className="px-4 py-2.5 border border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white text-[#1a1a1a] text-[10px] tracking-[0.12em] uppercase font-semibold flex items-center gap-2 transition-colors bg-white"
+                >
+                  <FileText size={14} className="text-[#d4145a]" />
+                  {gstDocument ? "Change Document File" : "Upload GST Certificate / Registration File"}
+                </button>
+                {gstDocument && (
+                  <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 px-3 py-1 font-semibold flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Document Attached
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

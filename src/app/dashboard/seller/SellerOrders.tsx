@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
-import { Printer, RefreshCw, Eye, X, ChevronLeft, ChevronRight, Package, Truck, CheckCircle, Clock } from "lucide-react";
+import { Printer, RefreshCw, Eye, X, ChevronLeft, ChevronRight, Package, Truck, CheckCircle, Clock, Search, AlertCircle } from "lucide-react";
 import { orderStatusColor, payStatusColor, fmt, type SellerNavigateFn } from "./sellerData";
 import { sellerService } from "../../services/seller.service";
 import { invoiceService } from "../../services/invoice.service";
+import { formatImageUrl } from "../../utils/imageUrl";
+import { extractErrorMessage } from "../../utils/errorExtractor";
+import { toast } from "sonner";
 
 const STATUSES = ["All", "Pending", "Processing", "Packed", "Ready to Ship", "Shipped", "Delivered", "Cancelled"];
 
@@ -20,6 +23,9 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
   const [detailOrder, setDetailOrder] = useState<any | null>(null);
   const [timelineHistory, setTimelineHistory] = useState<any[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [courierName, setCourierName] = useState("");
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -46,15 +52,19 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
         setTotalPages(1);
       }
     } catch (err: any) {
-      setError(err?.message || "Failed to load seller orders.");
+      const msg = extractErrorMessage(err, "Failed to load seller orders.");
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [page, filter]);
+    const timer = setTimeout(() => {
+      fetchOrders();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [page, filter, search]);
 
   useEffect(() => {
     if (selectedOrderId) {
@@ -62,16 +72,18 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
     }
   }, [selectedOrderId]);
 
-  const handleUpdateStatus = async (orderId: string | number, newStatus: string) => {
+  const handleUpdateStatus = async (orderId: string | number, newStatus: string, extraData?: any) => {
     setUpdatingId(orderId);
     try {
-      await sellerService.updateOrderStatus(orderId, newStatus);
+      await sellerService.updateOrderStatus(orderId, newStatus, extraData);
+      toast.success(`Order status updated to ${newStatus.replace(/_/g, " ")}.`);
       if (detailOrder && (detailOrder.id === orderId || detailOrder.order_number === orderId)) {
-        setDetailOrder((prev: any) => ({ ...prev, order_status: newStatus }));
+        setDetailOrder((prev: any) => ({ ...prev, order_status: newStatus, status: newStatus }));
       }
       fetchOrders();
     } catch (err: any) {
-      alert(err?.message || "Failed to update order status.");
+      const msg = extractErrorMessage(err, "Failed to update order status.");
+      toast.error(msg);
     } finally {
       setUpdatingId(null);
     }
@@ -81,18 +93,21 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
     setLoadingDetail(true);
     try {
       const res = await sellerService.getSellerOrderById(orderId);
-      const orderData = res.data || res;
+      const orderData = (res.data || res) as any;
       setDetailOrder(orderData);
+      setTrackingNumber(orderData?.tracking_number || "");
+      setCourierName(orderData?.courier_name || "");
 
       try {
         const histRes = await sellerService.getOrderHistory(orderId);
         const histData = histRes.data || histRes;
-        setTimelineHistory(Array.isArray(histData) ? histData : []);
+        setTimelineHistory(Array.isArray(histData) ? histData : (histData?.history || histData?.items || []));
       } catch {
         setTimelineHistory([]);
       }
     } catch (err: any) {
-      alert(err?.message || "Failed to load order details.");
+      const msg = extractErrorMessage(err, "Failed to load order details.");
+      toast.error(msg);
     } finally {
       setLoadingDetail(false);
     }
@@ -101,8 +116,9 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
   const handleDownloadInvoice = async (invoiceId: string | number) => {
     try {
       await invoiceService.downloadInvoice(invoiceId);
+      toast.success("Invoice requested.");
     } catch {
-      alert("Invoice download PDF generated. Opening print dialog.");
+      toast.info("Opening invoice print dialog.");
       window.print();
     }
   };
@@ -174,7 +190,7 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
             const nextStatus = NEXT_STATUS[currentStatus];
             const items = o.items || o.order_items || [];
             const firstItem = items[0] || {};
-            const itemImg = firstItem.product_image || firstItem.image || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=70";
+            const itemImg = formatImageUrl(firstItem.product_image || firstItem.image);
 
             return (
               <div key={o.id} className="bg-white border border-[#ececec] p-5 hover:border-[#c0c0c0] transition-colors">
@@ -324,7 +340,7 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
               <div className="space-y-3">
                 {(detailOrder.items || detailOrder.order_items || []).map((it: any, idx: number) => (
                   <div key={idx} className="flex items-center gap-4 py-2 border-b border-[#f0f0f0]">
-                    <img src={it.product_image || it.image || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&q=70"} alt="" className="w-12 h-14 object-cover border border-[#ececec]" />
+                    <img src={formatImageUrl(it.product_image || it.image)} alt="" className="w-12 h-14 object-cover border border-[#ececec]" />
                     <div className="flex-1">
                       <p className="text-xs font-semibold text-[#1a1a1a]">{it.product_name || "Product Item"}</p>
                       <p className="text-[10px] text-[#9e9e9e]">Qty: {it.quantity || 1} · Unit Price: {fmt(Number(it.unit_price || it.price || 0))}</p>

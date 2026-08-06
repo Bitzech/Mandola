@@ -3,6 +3,7 @@ import { productService } from "../../services/product.service";
 import { apiClient } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { RefreshCw, Search } from "lucide-react";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 export default function InventoryPage() {
   const { user } = useAuth();
@@ -155,7 +156,8 @@ export default function InventoryPage() {
             ) : filteredProducts.length > 0 ? (
               filteredProducts.map(p => {
                 const stockVal = p.stock_quantity !== undefined ? p.stock_quantity : (p.stock !== undefined ? p.stock : 0);
-                const imgUrl = (p.images && p.images.length > 0 ? p.images[0].image : p.image) || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=70";
+                const rawImg = p.thumbnail || (p.images && p.images.length > 0 ? (typeof p.images[0] === "string" ? p.images[0] : p.images[0].image || p.images[0].url || p.images[0].image_url) : p.image);
+                const imgUrl = formatImageUrl(rawImg);
 
                 return (
                   <tr key={p.id} className="border-b border-[#ececec] hover:bg-[#faf7f4] transition-colors">

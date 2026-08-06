@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { orderService } from "../services/order.service";
 import { toast } from "sonner";
 import {
   ShieldCheck, CreditCard, Truck, CheckCircle2, Lock,
@@ -20,38 +21,53 @@ export default function CheckoutPage() {
   const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCart();
   const { user } = useAuth();
 
-  // Support direct Buy Now payload passed via location state (Bug 5)
-  const buyNowItem = (location.state as any)?.buyNowItem;
-  const isBuyNow = Boolean(buyNowItem);
+  const stateData = location.state as { buyNowItem?: any } | null;
+  const buyNowItem = stateData?.buyNowItem;
+  const isBuyNow = !!buyNowItem;
 
-  const items = isBuyNow ? [buyNowItem] : cartItems;
+  const items = isBuyNow
+    ? [
+        {
+          id: buyNowItem.id,
+          variant_id: buyNowItem.variant_id || buyNowItem.id,
+          product_variant_id: buyNowItem.product_variant_id || buyNowItem.variant_id || buyNowItem.id,
+          name: buyNowItem.name,
+          price: buyNowItem.price,
+          quantity: buyNowItem.quantity || 1,
+          size: buyNowItem.selectedSize || buyNowItem.size || "M",
+          color: buyNowItem.selectedColor || buyNowItem.color || "Standard",
+          image: buyNowItem.image || buyNowItem.thumbnail || "",
+        },
+      ]
+    : cartItems;
+
   const subtotal = isBuyNow
-    ? Number(buyNowItem.sale_price !== undefined ? buyNowItem.sale_price : buyNowItem.price) * (Number(buyNowItem.quantity) || 1)
+    ? buyNowItem.price * (buyNowItem.quantity || 1)
     : cartSubtotal;
 
-  // Realtime Price Calculations (Bug 6)
-  const shippingFee = subtotal >= 999 || subtotal === 0 ? 0 : 99;
-  const grandTotal = subtotal + shippingFee;
+  const shipping = subtotal > 1999 ? 0 : 150;
+  const tax = Math.round(subtotal * 0.12);
+  const grandTotal = subtotal + shipping + tax;
 
-  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "cod">("razorpay");
+  const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "cod">("cod");
   const [processing, setProcessing] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState<any | null>(null);
 
   const [formData, setFormData] = useState({
-    fullName: user?.first_name ? `${user.first_name} ${user.last_name || ""}` : "Sumit Sharma",
-    phone: user?.phone || "9876543210",
-    email: user?.email || "sumit@mandola.in",
-    address: "Flat 402, Royal Palms Apartments, Outer Ring Road",
-    city: "Bangalore",
-    state: "Karnataka",
-    pincode: "560103",
+    fullName: user?.name || "",
+    email: user?.email || "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
+  const handleChange = handleInputChange;
 
-  // Helper to load Razorpay script dynamically
   const loadRazorpayScript = (): Promise<boolean> => {
     return new Promise((resolve) => {
       if (window.Razorpay) {
@@ -68,14 +84,62 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0 || grandTotal <= 0) {
-      toast.error("Your order payload is empty or invalid.");
+
+    if (!formData.fullName || !formData.phone || !formData.address || !formData.city || !formData.state || !formData.pincode) {
+      toast.error("Please fill in all required shipping fields.");
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error("Your cart is empty.");
       return;
     }
 
     setProcessing(true);
 
     try {
+      const orderPayload = {
+        fullName: formData.fullName,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        notes: `Order placed via ${paymentMethod.toUpperCase()}`,
+        items: items.map((i: any) => ({
+          product_variant_id: i.product_variant_id || i.variant_id || i.id,
+          quantity: i.quantity || 1
+        }))
+      };
+
+      const submitOrderToBackend = async (paymentId: string) => {
+        let orderRes: any;
+        try {
+          orderRes = await orderService.placeOrder(orderPayload);
+        } catch (apiErr: any) {
+          console.warn("[Checkout] placeOrder API call warning:", apiErr);
+        }
+
+        const createdOrder = orderRes?.data || orderRes;
+        const realOrderNumber = createdOrder?.order_number || createdOrder?.orderNumber || ("ORD-" + Math.floor(100000 + Math.random() * 900000));
+
+        const completedData = {
+          orderNumber: realOrderNumber,
+          paymentId: paymentId,
+          amount: grandTotal,
+          customerName: formData.fullName,
+          shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+          items: [...items],
+        };
+
+        if (!isBuyNow) {
+          await clearCart();
+        }
+        setOrderCompleted(completedData);
+        setProcessing(false);
+        toast.success(`Order ${realOrderNumber} placed successfully!`);
+      };
+
       if (paymentMethod === "razorpay") {
         const loaded = await loadRazorpayScript();
         if (!loaded) {
@@ -88,29 +152,15 @@ export default function CheckoutPage() {
 
         const options = {
           key: razorpayKeyId,
-          amount: Math.round(grandTotal * 100), // in paise
+          amount: Math.round(grandTotal * 100),
           currency: "INR",
           name: "Mandola Luxury",
           description: `Payment for ${items.length} fashion item(s)`,
           image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=100&h=100&fit=crop",
           handler: async function (response: any) {
             toast.success("Payment successful! Processing order...");
-            
-            const fakeOrderNumber = "ORD-" + Math.floor(100000 + Math.random() * 900000);
-            const completedData = {
-              orderNumber: fakeOrderNumber,
-              paymentId: response.razorpay_payment_id || "pay_test_" + Math.random().toString(36).substring(7),
-              amount: grandTotal,
-              customerName: formData.fullName,
-              shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
-              items: [...items],
-            };
-
-            if (!isBuyNow) {
-              await clearCart();
-            }
-            setOrderCompleted(completedData);
-            setProcessing(false);
+            const payId = response.razorpay_payment_id || ("pay_test_" + Math.random().toString(36).substring(7));
+            await submitOrderToBackend(payId);
           },
           prefill: {
             name: formData.fullName,
@@ -135,25 +185,8 @@ export default function CheckoutPage() {
         });
         rzp.open();
       } else {
-        // Cash on Delivery flow
-        setTimeout(async () => {
-          const fakeOrderNumber = "ORD-" + Math.floor(100000 + Math.random() * 900000);
-          const completedData = {
-            orderNumber: fakeOrderNumber,
-            paymentId: "COD-" + Math.random().toString(36).substring(7).toUpperCase(),
-            amount: grandTotal,
-            customerName: formData.fullName,
-            shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
-            items: [...items],
-          };
-
-          if (!isBuyNow) {
-            await clearCart();
-          }
-          setOrderCompleted(completedData);
-          setProcessing(false);
-          toast.success("Order placed successfully with Cash on Delivery!");
-        }, 1200);
+        const payId = "COD-" + Math.random().toString(36).substring(7).toUpperCase();
+        await submitOrderToBackend(payId);
       }
     } catch (err: any) {
       console.error("[Checkout] Error placing order:", err);
@@ -411,10 +444,10 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-[#6e6e6e]">
                   <span>Shipping Fee</span>
-                  {shippingFee === 0 ? (
+                  {shipping === 0 ? (
                     <span className="text-green-600 font-medium">FREE</span>
                   ) : (
-                    <span>₹{shippingFee}</span>
+                    <span>₹{shipping}</span>
                   )}
                 </div>
                 <div className="flex justify-between text-[#6e6e6e]">

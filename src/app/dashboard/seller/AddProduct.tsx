@@ -7,6 +7,7 @@ import { Category, SubCategory, Brand, Collection, Size, Color } from "../../typ
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "sonner";
 import { formatApiErrorMessage } from "../../services/apiClient";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 // Compress client-side image files to max 1200px width/height and 0.8 JPEG quality
 const compressImageFile = (file: File, maxDimension = 1200, quality = 0.8): Promise<string> => {
@@ -156,10 +157,10 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
               setSelectedColors(p.colors.map(String));
             }
 
-            if (p.images && Array.isArray(p.images)) {
-              setImages(p.images.map((img: any) => typeof img === "string" ? img : (img.image || img.url || img.image_url)));
-            } else if (p.image || p.thumbnail) {
-              setImages([p.image || p.thumbnail]);
+            if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+              setImages(p.images.map((img: any) => typeof img === "string" ? img : (img.image || img.url || img.image_url)).filter(Boolean));
+            } else if (p.thumbnail || p.image || p.primary_image) {
+              setImages([p.thumbnail || p.image || p.primary_image]);
             }
           }
         })
@@ -499,7 +500,7 @@ export default function AddProduct({ onNavigate, editId }: { onNavigate: SellerN
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
             {images.map((img, idx) => (
               <div key={idx} className="relative group aspect-[3/4] bg-[#faf7f4] border border-[#ececec] overflow-hidden shadow-sm">
-                <img src={img} alt={`Product thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                <img src={formatImageUrl(img)} alt={`Product thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
 
                 {/* Remove Image Button */}
                 <button

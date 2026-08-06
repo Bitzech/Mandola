@@ -4,6 +4,7 @@ import { fmt } from "./adminData";
 import { adminService } from "../../services/admin.service";
 import { extractErrorMessage } from "../../utils/errorExtractor";
 import { toast } from "sonner";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 const statusStyle = (s: string) => {
   const lower = (s || "").toLowerCase();
@@ -154,7 +155,8 @@ export default function AdminProducts() {
                   const statusRaw = p.approval_status || p.status || "Approved";
                   const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
                   const isUpdating = updatingId === p.id;
-                  const pImg = p.thumbnail || p.image || p.img || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&h=120&fit=crop";
+                  const rawImg = p.thumbnail || p.image || p.img;
+                  const pImg = formatImageUrl(rawImg);
                   const productTarget = p.slug || (p.name || p.product_name ? (p.name || p.product_name).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : p.id);
 
                   return (

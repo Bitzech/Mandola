@@ -68,8 +68,9 @@ export const sellerService = {
     return response.data;
   },
 
-  async updateOrderStatus(id: string | number, status: string): Promise<ApiResponse> {
-    const response = await apiClient.patch(API_ENDPOINTS.SELLER.ORDER_STATUS(id), { status });
+  async updateOrderStatus(id: string | number, status: string, extra?: any): Promise<ApiResponse> {
+    const payload = { status, ...extra };
+    const response = await apiClient.patch(API_ENDPOINTS.SELLER.ORDER_STATUS(id), payload);
     return response.data;
   },
 

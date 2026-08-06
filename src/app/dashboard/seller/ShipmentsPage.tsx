@@ -25,10 +25,13 @@ export default function ShipmentsPage() {
     setError(null);
     try {
       let res: any;
+      const params: any = { limit: 50 };
+      if (search.trim()) params.search = search.trim();
+
       if (shipmentService.getSellerShipments) {
-        res = await shipmentService.getSellerShipments({ limit: 50, search: search.trim() });
+        res = await shipmentService.getSellerShipments(params);
       } else {
-        res = await shipmentService.getShipments({ search: search.trim() });
+        res = await shipmentService.getShipments(params);
       }
       const resData: any = res?.data || res;
       const itemsList = resData?.items || resData?.shipments || (Array.isArray(resData) ? resData : []);

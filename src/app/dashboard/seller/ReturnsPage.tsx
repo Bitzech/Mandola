@@ -23,7 +23,16 @@ export default function ReturnsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get("/returns", { params: { search: search.trim() } });
+      const params: any = { limit: 50 };
+      if (search.trim()) params.search = search.trim();
+
+      let res: any;
+      try {
+        res = await apiClient.get("/seller/returns", { params });
+      } catch {
+        res = await apiClient.get("/returns", { params });
+      }
+
       const resData = res.data?.data || res.data;
       if (Array.isArray(resData)) {
         setReturns(resData);
@@ -48,7 +57,11 @@ export default function ReturnsPage() {
   const handleUpdateReturn = async (returnId: string | number, status: string) => {
     setUpdatingId(returnId);
     try {
-      await apiClient.patch(`/returns/${returnId}/status`, { status });
+      try {
+        await apiClient.put(`/seller/returns/${returnId}/review`, { status, review_notes: `Status changed to ${status}` });
+      } catch {
+        await apiClient.patch(`/returns/${returnId}/status`, { status });
+      }
       fetchReturns();
     } catch (err: any) {
       alert(err?.message || "Failed to update return request.");
