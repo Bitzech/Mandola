@@ -96,20 +96,25 @@ export default function Header({
     };
   }, []);
 
-  // Build nav items dynamically from live API or fallback to static NAV_ITEMS
+  // Build nav items dynamically from live API: filter out subcategories/categories with 0 products
   const displayNavItems = liveCategories.length > 0
-    ? liveCategories.map(cat => ({
-        label: cat.name,
-        slug: cat.slug,
-        sub: (cat.subCategories && cat.subCategories.length > 0)
-          ? cat.subCategories.map(s => ({ name: s.name, slug: s.slug }))
-          : [{ name: cat.name, slug: cat.slug }]
-      }))
-    : NAV_ITEMS.map(item => ({
-        label: item.label,
-        slug: item.label.toLowerCase().replace(/\s+/g, "-"),
-        sub: item.sub.map(s => ({ name: s, slug: s.toLowerCase().replace(/\s+/g, "-") }))
-      }));
+    ? liveCategories
+        .map(cat => {
+          const subsWithProducts = (cat.subCategories || []).filter(
+            s => (s.product_count ?? s.products_count ?? 0) > 0
+          );
+          const catProductCount = cat.product_count ?? cat.products_count ?? 0;
+          return {
+            label: cat.name,
+            slug: cat.slug,
+            productCount: catProductCount,
+            sub: subsWithProducts.length > 0
+              ? subsWithProducts.map(s => ({ name: s.name, slug: s.slug }))
+              : (catProductCount > 0 ? [{ name: cat.name, slug: cat.slug }] : [])
+          };
+        })
+        .filter(cat => cat.sub.length > 0 || cat.productCount > 0)
+    : [];
 
   return (
     <>

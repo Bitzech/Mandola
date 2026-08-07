@@ -6,6 +6,7 @@ export interface Category {
   description?: string;
   status?: string | number;
   sort_order?: number;
+  product_count?: number;
   products_count?: number;
   subCategories?: SubCategory[];
 }
@@ -18,6 +19,8 @@ export interface SubCategory {
   image?: string;
   description?: string;
   status?: string | number;
+  product_count?: number;
+  products_count?: number;
 }
 
 export interface Brand {

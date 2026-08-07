@@ -184,8 +184,8 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
 
       {/* Filters + grid */}
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 py-10">
-        {/* Live Sub-category pills */}
-        {subCategories.length > 0 && (
+        {/* Live Sub-category pills (Only show subcategories with active products) */}
+        {subCategories.filter(s => (s.product_count ?? s.products_count ?? 1) > 0).length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-8 pb-4 border-b border-[#f0f0f0]">
             <span className="text-[10px] tracking-[0.2em] uppercase text-[#9e9e9e] font-semibold mr-2">Sub-Categories:</span>
             <button
@@ -194,7 +194,7 @@ export default function CategoryPage({ page, onBack, onNavigate, onProductClick 
             >
               All {categoryTitle}
             </button>
-            {subCategories.map(s => {
+            {subCategories.filter(s => (s.product_count ?? s.products_count ?? 1) > 0).map(s => {
               const active = page.sub.toLowerCase() === s.slug.toLowerCase() || page.sub.toLowerCase() === s.name.toLowerCase();
               return (
                 <button
