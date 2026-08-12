@@ -102,6 +102,28 @@ export const categoryService = {
   },
 
   /**
+   * Create sub-category (Admin)
+   */
+  async createSubCategory(payload: { category_id: number | string; name: string; description?: string }): Promise<ApiResponse<SubCategory>> {
+    const response = await apiClient.post("/admin/sub-categories", {
+      category_id: Number(payload.category_id),
+      name: payload.name.trim(),
+      description: payload.description ? payload.description.trim() : undefined
+    });
+    categoriesCache = null;
+    return response.data;
+  },
+
+  /**
+   * Delete sub-category (Admin)
+   */
+  async deleteSubCategory(id: string | number): Promise<ApiResponse> {
+    const response = await apiClient.delete(`/admin/sub-categories/${id}`);
+    categoriesCache = null;
+    return response.data;
+  },
+
+  /**
    * Optimized: Fetch categories and all sub-categories in parallel (Only 2 HTTP requests!)
    */
   async getCategoriesWithSubCategories(forceRefresh = false): Promise<Category[]> {
