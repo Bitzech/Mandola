@@ -4,6 +4,7 @@ import { deliveryStatusColor } from "./dashboardData";
 import type { NavigateFn } from "./dashboardData";
 import { shipmentService } from "../services/shipment.service";
 import { orderService } from "../services/order.service";
+import { formatImageUrl } from "../utils/imageUrl";
 import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 
@@ -156,7 +157,10 @@ export default function OrderTracking({ orderId, onNavigate }: { orderId: string
   
   let timeline: any[] = [];
   if (Array.isArray(trackingEvents) && trackingEvents.length > 0) {
-    timeline = trackingEvents.map((evt: any) => ({
+    const sortedEvents = [...trackingEvents].sort(
+      (a: any, b: any) => new Date(a.created_at || a.created_time || a.id || 0).getTime() - new Date(b.created_at || b.created_time || b.id || 0).getTime()
+    );
+    timeline = sortedEvents.map((evt: any) => ({
       status: evt.status || evt.title || evt.event || "Update",
       location: evt.location || evt.location_name || "",
       remarks: evt.remarks || evt.notes || "",
@@ -280,7 +284,8 @@ export default function OrderTracking({ orderId, onNavigate }: { orderId: string
               <h3 className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#1a1a1a] mb-4 pb-3 border-b border-[#ececec]">Items in Shipment</h3>
               <div className="space-y-3">
                 {itemsList.map((item: any, i: number) => {
-                  const itemImg = item.thumbnail || item.product_image || item.img || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=120&h=150&fit=crop";
+                  const rawImg = item.thumbnail || item.product_image || item.img || "";
+                  const itemImg = formatImageUrl(rawImg);
                   const itemName = item.product_name || item.name || "Item";
                   const itemSize = item.size_name || item.size || "M";
                   const itemQty = item.quantity || item.qty || 1;

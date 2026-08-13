@@ -3,6 +3,7 @@ import { Search, Eye, Truck, Download, RefreshCw, Package } from "lucide-react";
 import { deliveryStatusColor, paymentStatusColor } from "./dashboardData";
 import type { NavigateFn } from "./dashboardData";
 import { orderService } from "../services/order.service";
+import { formatImageUrl } from "../utils/imageUrl";
 import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 
@@ -143,6 +144,8 @@ export default function MyOrders({ onNavigate }: { onNavigate: NavigateFn }) {
             const payStatus = order.payment_status || order.paymentStatus || "Paid";
             const totalAmt = order.grand_total || order.total_amount || order.amount || 0;
             const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : order.date || "Today";
+            const isDelivered = String(delStatus).toLowerCase() === "delivered";
+            const isCancelled = String(delStatus).toLowerCase() === "cancelled";
 
             return (
               <div key={order.id || orderIdStr} className="bg-white border border-[#ececec] p-5">
@@ -164,7 +167,8 @@ export default function MyOrders({ onNavigate }: { onNavigate: NavigateFn }) {
                 {/* Items */}
                 <div className="space-y-3 mb-4">
                   {orderItems.map((item: any, i: number) => {
-                    const itemImg = item.thumbnail || item.product_image || item.img || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=120&h=150&fit=crop";
+                    const rawImg = item.thumbnail || item.product_image || item.image || item.img;
+                    const itemImg = formatImageUrl(rawImg);
                     const itemName = item.product_name || item.name || "Product Item";
                     const itemPrice = item.price || item.unit_price || 0;
                     const itemQty = item.quantity || item.qty || 1;
@@ -192,13 +196,13 @@ export default function MyOrders({ onNavigate }: { onNavigate: NavigateFn }) {
                     className="flex items-center gap-1.5 px-4 py-2 border border-[#ececec] text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
                     <Eye size={12} /> View Details
                   </button>
-                  {delStatus !== "Cancelled" && delStatus !== "Delivered" && (
+                  {!isCancelled && !isDelivered && (
                     <button onClick={() => onNavigate("tracking", String(order.id || orderIdStr))}
                       className="flex items-center gap-1.5 px-4 py-2 border border-[#ececec] text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
                       <Truck size={12} /> Track Order
                     </button>
                   )}
-                  {(payStatus === "Paid" || payStatus === "paid") && (
+                  {(payStatus === "Paid" || payStatus === "paid" || isDelivered) && (
                     <button onClick={() => onNavigate("invoices")} className="flex items-center gap-1.5 px-4 py-2 border border-[#ececec] text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
                       <Download size={12} /> Invoice
                     </button>

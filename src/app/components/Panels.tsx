@@ -7,6 +7,7 @@ import { getDashboardPathForRole } from "../routes/GuestRoute";
 import { toast } from "sonner";
 
 import { useCart } from "../context/CartContext";
+import { formatImageUrl } from "../utils/imageUrl";
 
 interface CartPanelProps {
   cartCount?: number;
@@ -56,7 +57,8 @@ export function CartPanel({ onClose }: CartPanelProps) {
               const sizeLabel = item.size ? `Size: ${item.size}` : "";
               const colorLabel = item.color ? `Color: ${item.color}` : "";
               const variantDetails = [sizeLabel, colorLabel].filter(Boolean).join(" · ");
-              const img = item.thumbnail || item.img1 || item.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";
+              const rawImg = item.thumbnail || item.product_image || item.image || item.img1 || item.img;
+              const img = formatImageUrl(rawImg);
 
               return (
                 <div key={variantId || item.cart_item_id} className="flex gap-4 border-b border-[#f5f5f5] pb-4">

@@ -3,11 +3,13 @@ import { useNavigate, useLocation } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { orderService } from "../services/order.service";
+import { addressService } from "../services/address.service";
+import { formatImageUrl } from "../utils/imageUrl";
 import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 import {
   ShieldCheck, CreditCard, Truck, CheckCircle2, Lock,
-  ArrowLeft, Loader2, Sparkles
+  ArrowLeft, Loader2, Sparkles, MapPin, Plus, Check
 } from "lucide-react";
 
 declare global {
@@ -24,12 +26,36 @@ export default function CheckoutPage() {
 
   const isLogged = isAuthenticated || Boolean(user?.id);
 
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | number | "new" | null>(null);
+
   useEffect(() => {
     if (!isLogged) {
       toast.info("Please log in or create an account to proceed to checkout.");
       navigate("/login?redirect=/checkout", { state: { from: location }, replace: true });
+    } else {
+      addressService.getAddresses().then((res: any) => {
+        const raw = res?.data || res;
+        const list = Array.isArray(raw) ? raw : (raw?.items || []);
+        if (list.length > 0) {
+          setSavedAddresses(list);
+          const def = list.find((a: any) => a.is_default) || list[0];
+          if (def) {
+            setSelectedAddressId(def.id);
+            setFormData({
+              fullName: def.full_name || user?.name || "",
+              email: user?.email || "",
+              phone: def.phone || "",
+              address: def.address_line_1 ? (def.address_line_1 + (def.address_line_2 ? `, ${def.address_line_2}` : "")) : (def.address || ""),
+              city: def.city || "",
+              state: def.state || "",
+              pincode: def.pincode || "",
+            });
+          }
+        }
+      }).catch(() => {});
     }
-  }, [isLogged, location, navigate]);
+  }, [isLogged, location, navigate, user]);
 
   const stateData = location.state as { buyNowItem?: any } | null;
   const buyNowItem = stateData?.buyNowItem;
@@ -283,6 +309,68 @@ export default function CheckoutPage() {
               <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Step 1 of 2</span>
               <h2 className="font-['Playfair_Display'] text-2xl font-bold text-[#1a1a1a] mt-1 mb-6">Shipping Address</h2>
 
+              {savedAddresses.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <p className="text-xs font-semibold text-[#1a1a1a] flex items-center gap-1.5">
+                    <MapPin size={14} className="text-[#d4145a]" /> Select from Saved Addresses
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {savedAddresses.map((addr) => {
+                      const isSelected = selectedAddressId === addr.id;
+                      const addrText = addr.address_line_1 ? `${addr.address_line_1}${addr.address_line_2 ? `, ${addr.address_line_2}` : ""}` : (addr.address || "");
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => {
+                            setSelectedAddressId(addr.id);
+                            setFormData({
+                              fullName: addr.full_name || user?.name || "",
+                              email: user?.email || "",
+                              phone: addr.phone || "",
+                              address: addrText,
+                              city: addr.city || "",
+                              state: addr.state || "",
+                              pincode: addr.pincode || "",
+                            });
+                          }}
+                          className={`p-3.5 border cursor-pointer transition-all rounded-sm relative ${isSelected ? "border-[#d4145a] bg-[#fce8ef]/20 shadow-sm" : "border-[#ececec] hover:border-[#6e6e6e] bg-white"}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <span className="text-[9px] font-bold tracking-[0.1em] uppercase px-2 py-0.5 bg-[#1a1a1a] text-white rounded-xs">
+                              {addr.address_type || "HOME"}
+                            </span>
+                            {isSelected && <Check size={14} className="text-[#d4145a]" />}
+                          </div>
+                          <p className="text-xs font-bold text-[#1a1a1a] mt-2">{addr.full_name}</p>
+                          <p className="text-[11px] text-[#6e6e6e] mt-0.5 line-clamp-2">{addrText}, {addr.city}, {addr.state} - {addr.pincode}</p>
+                          <p className="text-[10px] text-[#6e6e6e] mt-1">Ph: {addr.phone}</p>
+                        </div>
+                      );
+                    })}
+
+                    <div
+                      onClick={() => {
+                        setSelectedAddressId("new");
+                        setFormData({
+                          fullName: user?.name || "",
+                          email: user?.email || "",
+                          phone: "",
+                          address: "",
+                          city: "",
+                          state: "",
+                          pincode: "",
+                        });
+                      }}
+                      className={`p-3.5 border border-dashed cursor-pointer transition-all rounded-sm flex flex-col items-center justify-center text-center ${selectedAddressId === "new" ? "border-[#d4145a] bg-[#fce8ef]/20" : "border-[#cccccc] hover:border-[#1a1a1a] bg-[#faf7f4]"}`}
+                    >
+                      <Plus size={18} className="text-[#6e6e6e] mb-1" />
+                      <p className="text-xs font-semibold text-[#1a1a1a]">Enter New Address</p>
+                      <p className="text-[10px] text-[#9e9e9e]">Fill custom shipping fields below</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -437,7 +525,8 @@ export default function CheckoutPage() {
                   items.map((item, idx) => {
                     const price = Number(item.sale_price !== null && item.sale_price !== undefined ? item.sale_price : item.price) || 0;
                     const qty = Number(item.quantity) || 1;
-                    const img = item.thumbnail || item.img1 || item.img || "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?w=300&h=400&fit=crop";
+                    const rawImg = item.thumbnail || item.product_image || item.image || item.img1 || item.img;
+                    const img = formatImageUrl(rawImg);
 
                     return (
                       <div key={item.cart_item_id || item.product_variant_id || idx} className="flex gap-3 text-xs">
