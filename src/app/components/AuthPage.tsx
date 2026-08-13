@@ -305,6 +305,15 @@ export default function AuthPage({ onBack }: Props) {
   };
 
   const redirectUserByRole = (userRole: string) => {
+    const searchParams = new URLSearchParams(location.search);
+    const redirectUrl = searchParams.get("redirect") || (location.state as any)?.from;
+
+    if (redirectUrl) {
+      const targetPath = typeof redirectUrl === "string" ? redirectUrl : redirectUrl.pathname || "/customer";
+      navigate(targetPath);
+      return;
+    }
+
     if (userRole === "admin") {
       navigate("/admin");
     } else if (userRole === "seller") {

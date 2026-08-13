@@ -16,6 +16,7 @@ import { reviewService } from "../services/review.service";
 import { Size, Color } from "../types/product.types";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { formatImageUrl } from "../utils/imageUrl";
 
 interface Props {
@@ -305,6 +306,8 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const avgRating = liveSummary?.average_rating ? Number(liveSummary.average_rating).toFixed(1) : (displayReviews.reduce((sum, r) => sum + Number(r.rating), 0) / (displayReviews.length || 1)).toFixed(1);
 
   const { addItem: addToCartItem } = useCart();
+  const { user, isAuthenticated } = useAuth();
+  const isLogged = isAuthenticated || Boolean(user?.id);
 
   const handleAddToBag = () => {
     if (!selectedSize) {
@@ -330,6 +333,11 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const handleBuyNow = () => {
     if (!selectedSize) {
       toast.error("Please select a size first");
+      return;
+    }
+    if (!isLogged) {
+      toast.info("Please log in to proceed to checkout.");
+      navigate("/login?redirect=/checkout", { state: { from: "/checkout" } });
       return;
     }
     const variantId = (product as any).default_variant_id || (product as any).variant_id || product.id || 1;

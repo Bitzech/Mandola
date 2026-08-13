@@ -52,7 +52,6 @@ export const router = createBrowserRouter([
       { path: "category/:categorySlug/:subCategorySlug", element: wrap(<CategoryRoutePage />) },
       { path: "product/:slug", element: wrap(<ProductRoutePage />) },
       { path: "product/slug/:slug", element: wrap(<ProductRoutePage />) },
-      { path: "checkout", element: wrap(<CheckoutPage />) },
       { path: "search", element: wrap(<HomePage />) },
       { path: "collections", element: wrap(<HomePage />) },
       { path: "collection/:collectionSlug", element: wrap(<HomePage />) },
@@ -72,6 +71,7 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute />,
         children: [
+          { path: "checkout", element: wrap(<CheckoutPage />) },
           {
             path: "customer",
             element: <RoleRoute role="customer" />,

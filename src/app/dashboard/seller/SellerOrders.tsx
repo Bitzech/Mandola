@@ -32,7 +32,7 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
     setError(null);
     try {
       const params: any = { page, limit: 10 };
-      if (filter !== "All") params.status = filter.toLowerCase().replace(/ /g, "_");
+      if (filter !== "All") params.order_status = filter.toLowerCase().replace(/ /g, "_");
       if (search.trim()) params.search = search.trim();
 
       const res = await sellerService.getSellerOrders(params);

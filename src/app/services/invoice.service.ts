@@ -17,4 +17,9 @@ export const invoiceService = {
     const response = await apiClient.get(API_ENDPOINTS.INVOICES.DOWNLOAD(id));
     return response.data;
   },
+
+  async generateInvoice(orderId: string | number): Promise<any> {
+    const response = await apiClient.post(`/admin/invoices/${orderId}/generate`);
+    return response.data?.data || response.data;
+  },
 };

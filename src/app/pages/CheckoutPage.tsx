@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { orderService } from "../services/order.service";
+import { extractErrorMessage } from "../utils/errorExtractor";
 import { toast } from "sonner";
 import {
   ShieldCheck, CreditCard, Truck, CheckCircle2, Lock,
@@ -19,7 +20,16 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+
+  const isLogged = isAuthenticated || Boolean(user?.id);
+
+  useEffect(() => {
+    if (!isLogged) {
+      toast.info("Please log in or create an account to proceed to checkout.");
+      navigate("/login?redirect=/checkout", { state: { from: location }, replace: true });
+    }
+  }, [isLogged, location, navigate]);
 
   const stateData = location.state as { buyNowItem?: any } | null;
   const buyNowItem = stateData?.buyNowItem;
@@ -117,10 +127,20 @@ export default function CheckoutPage() {
         try {
           orderRes = await orderService.placeOrder(orderPayload);
         } catch (apiErr: any) {
-          console.warn("[Checkout] placeOrder API call warning:", apiErr);
+          console.error("[Checkout] placeOrder API error:", apiErr);
+          const msg = extractErrorMessage(apiErr, "Failed to place order.");
+          toast.error(msg);
+          setProcessing(false);
+          return;
         }
 
         const createdOrder = orderRes?.data || orderRes;
+        if (!createdOrder) {
+          toast.error("Order placement failed. Please try again.");
+          setProcessing(false);
+          return;
+        }
+
         const realOrderNumber = createdOrder?.order_number || createdOrder?.orderNumber || ("ORD-" + Math.floor(100000 + Math.random() * 900000));
 
         const completedData = {
@@ -137,7 +157,7 @@ export default function CheckoutPage() {
         }
         setOrderCompleted(completedData);
         setProcessing(false);
-        toast.success(`Order ${realOrderNumber} placed successfully!`);
+        toast.success(`Order #${realOrderNumber} placed successfully!`);
       };
 
       if (paymentMethod === "razorpay") {

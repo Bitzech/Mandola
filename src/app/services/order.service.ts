@@ -45,6 +45,14 @@ export const orderService = {
   },
 
   /**
+   * Update order status (Admin & Seller)
+   */
+  async updateOrderStatus(id: string | number, order_status: string, remarks?: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/orders/${id}/status`, { order_status, remarks });
+    return response.data;
+  },
+
+  /**
    * Fetch customer saved addresses
    */
   async getAddresses(): Promise<ApiResponse<Address[]>> {

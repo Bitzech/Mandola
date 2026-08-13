@@ -4,6 +4,7 @@ import { PRODUCTS } from "../data";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { getDashboardPathForRole } from "../routes/GuestRoute";
+import { toast } from "sonner";
 
 import { useCart } from "../context/CartContext";
 
@@ -15,10 +16,18 @@ interface CartPanelProps {
 
 export function CartPanel({ onClose }: CartPanelProps) {
   const { items, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  const isLogged = isAuthenticated || Boolean(user?.id);
 
   const handleCheckout = () => {
     onClose();
+    if (!isLogged) {
+      toast.info("Please log in to proceed to checkout.");
+      navigate("/login?redirect=/checkout", { state: { from: "/checkout" } });
+      return;
+    }
     navigate("/checkout");
   };
 
