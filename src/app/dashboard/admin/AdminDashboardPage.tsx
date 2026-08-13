@@ -36,25 +36,25 @@ import { useAuth } from "../../context/AuthContext";
 interface Props { onLogout: () => void; }
 
 const NAV: { id: AdminSection; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }>; path: string }[] = [
-  { id: "home",          label: "Dashboard",          Icon: LayoutGrid,  path: "/admin" },
-  { id: "users",         label: "Users",              Icon: Users,       path: "/admin/users" },
-  { id: "sellers",       label: "Sellers",            Icon: Store,       path: "/admin/sellers" },
-  { id: "products",      label: "Products",           Icon: Package,     path: "/admin/products" },
-  { id: "categories",    label: "Categories",         Icon: Tag,         path: "/admin/categories" },
-  { id: "brands",        label: "Brands",             Icon: Bookmark,    path: "/admin/brands" },
-  { id: "collections",   label: "Collections",        Icon: Layers,      path: "/admin/collections" },
-  { id: "orders",        label: "Orders",             Icon: ShoppingBag, path: "/admin/orders" },
-  { id: "payments",      label: "Payments",           Icon: CreditCard,  path: "/admin/payments" },
-  { id: "wallet",        label: "Admin Wallet",       Icon: Wallet,      path: "/admin/wallet" },
-  { id: "settlements",   label: "Settlements",        Icon: Send,        path: "/admin/settlements" },
-  { id: "returns",       label: "Returns & Refunds",  Icon: RotateCcw,   path: "/admin/returns" },
-  { id: "reviews",       label: "Reviews",            Icon: Star,        path: "/admin/reviews" },
-  { id: "notifications", label: "Notifications",      Icon: Bell,        path: "/admin/notifications" },
-  { id: "invoices",      label: "Invoices",           Icon: FileText,    path: "/admin/invoices" },
-  { id: "reports",       label: "Reports",            Icon: BarChart2,   path: "/admin/reports" },
-  { id: "settings",      label: "Website Settings",   Icon: Settings,    path: "/admin/settings" },
-  { id: "profile",       label: "Profile",            Icon: User,        path: "/admin/profile" },
-  { id: "change-password",label: "Change Password",  Icon: Lock,        path: "/admin/change-password" },
+  { id: "home", label: "Dashboard", Icon: LayoutGrid, path: "/admin" },
+  { id: "users", label: "Users", Icon: Users, path: "/admin/users" },
+  { id: "sellers", label: "Sellers", Icon: Store, path: "/admin/sellers" },
+  { id: "products", label: "Products", Icon: Package, path: "/admin/products" },
+  { id: "categories", label: "Categories", Icon: Tag, path: "/admin/categories" },
+  { id: "brands", label: "Brands", Icon: Bookmark, path: "/admin/brands" },
+  { id: "collections", label: "Collections", Icon: Layers, path: "/admin/collections" },
+  { id: "orders", label: "Orders", Icon: ShoppingBag, path: "/admin/orders" },
+  { id: "payments", label: "Payments", Icon: CreditCard, path: "/admin/payments" },
+  { id: "wallet", label: "Admin Wallet", Icon: Wallet, path: "/admin/wallet" },
+  { id: "settlements", label: "Settlements", Icon: Send, path: "/admin/settlements" },
+  { id: "returns", label: "Returns & Refunds", Icon: RotateCcw, path: "/admin/returns" },
+  { id: "reviews", label: "Reviews", Icon: Star, path: "/admin/reviews" },
+  { id: "notifications", label: "Notifications", Icon: Bell, path: "/admin/notifications" },
+  { id: "invoices", label: "Invoices", Icon: FileText, path: "/admin/invoices" },
+  { id: "reports", label: "Reports", Icon: BarChart2, path: "/admin/reports" },
+  { id: "settings", label: "Website Settings", Icon: Settings, path: "/admin/settings" },
+  { id: "profile", label: "Profile", Icon: User, path: "/admin/profile" },
+  { id: "change-password", label: "Change Password", Icon: Lock, path: "/admin/change-password" },
 ];
 
 export default function AdminDashboardPage({ onLogout }: Props) {
@@ -123,26 +123,26 @@ export default function AdminDashboardPage({ onLogout }: Props) {
 
   const renderSection = () => {
     switch (active) {
-      case "home":            return <AdminHome         onNavigate={navigate} />;
-      case "users":           return <UsersPage />;
-      case "sellers":         return <SellersPage       onNavigate={navigate} />;
-      case "products":        return <AdminProducts />;
-      case "categories":      return <CategoriesPage />;
-      case "brands":          return <BrandsPage />;
-      case "collections":     return <CollectionsPage />;
-      case "orders":          return <AdminOrders />;
-      case "payments":        return <AdminPayments />;
-      case "wallet":          return <AdminWallet />;
-      case "settlements":     return <SellerSettlements />;
-      case "returns":         return <ReturnsRefunds />;
-      case "reviews":         return <AdminReviews />;
-      case "notifications":   return <AdminNotifications />;
-      case "invoices":        return <AdminInvoices />;
-      case "reports":         return <ReportsPage />;
-      case "settings":        return <WebsiteSettings />;
-      case "profile":         return <AdminProfile />;
+      case "home": return <AdminHome onNavigate={navigate} />;
+      case "users": return <UsersPage />;
+      case "sellers": return <SellersPage onNavigate={navigate} />;
+      case "products": return <AdminProducts />;
+      case "categories": return <CategoriesPage />;
+      case "brands": return <BrandsPage />;
+      case "collections": return <CollectionsPage />;
+      case "orders": return <AdminOrders />;
+      case "payments": return <AdminPayments />;
+      case "wallet": return <AdminWallet />;
+      case "settlements": return <SellerSettlements />;
+      case "returns": return <ReturnsRefunds />;
+      case "reviews": return <AdminReviews />;
+      case "notifications": return <AdminNotifications />;
+      case "invoices": return <AdminInvoices />;
+      case "reports": return <ReportsPage />;
+      case "settings": return <WebsiteSettings />;
+      case "profile": return <AdminProfile />;
       case "change-password": return <AdminChangePassword />;
-      default:                return <AdminHome         onNavigate={navigate} />;
+      default: return <AdminHome onNavigate={navigate} />;
     }
   };
 
@@ -172,20 +172,16 @@ export default function AdminDashboardPage({ onLogout }: Props) {
             <button
               key={item.id}
               onClick={() => navigate(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 font-medium transition-all duration-200 group relative ${
-                isActive
+              className={`w-full flex items-center gap-3 px-3 py-2.5 font-medium transition-all duration-200 group relative ${isActive
                   ? "bg-[#fce8ef] text-[#d4145a]"
                   : "text-[#6e6e6e] hover:bg-[#faf7f4] hover:text-[#1a1a1a]"
-              }`}
+                }`}
             >
               {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#d4145a]" />}
               <item.Icon size={15} strokeWidth={1.5} className="flex-shrink-0" />
               <span className="flex-1 text-left text-[11px] tracking-[0.07em] uppercase">{item.label}</span>
               {item.id === "notifications" && unread > 0 && (
                 <span className="min-w-[18px] h-[18px] bg-[#d4145a] text-white text-[8px] rounded-full flex items-center justify-center font-bold px-1">{unread}</span>
-              )}
-              {item.id === "sellers" && (
-                <span className="min-w-[18px] h-[18px] bg-amber-400 text-white text-[8px] rounded-full flex items-center justify-center font-bold px-1">2</span>
               )}
               <ChevronRight size={11} className={`flex-shrink-0 ${isActive ? "text-[#d4145a]" : "text-[#c0c0c0] group-hover:translate-x-0.5 transition-transform"}`} />
             </button>
@@ -310,7 +306,7 @@ export default function AdminDashboardPage({ onLogout }: Props) {
             )}
           </div>
           <button onClick={onLogout} className="flex items-center gap-1.5 text-[9px] tracking-[0.15em] uppercase text-[#6e6e6e] hover:text-[#d4145a] transition-colors">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
             Back to Store
           </button>
         </div>
