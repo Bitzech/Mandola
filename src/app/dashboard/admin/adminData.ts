@@ -216,22 +216,31 @@ export const WALLET_TRANSACTIONS = [
   { id: "W005", type: "Refund",      description: "Refund for #ORD-9836",       amount: -3200,balance: 3011040, date: "8 Jul 2025"  },
 ];
 
-export const fmt = (n: number) => "₹" + Math.abs(n).toLocaleString("en-IN");
+export const fmt = (n: number | string | null | undefined) => {
+  const num = Number(n) || 0;
+  return "₹" + Math.abs(num).toLocaleString("en-IN");
+};
 
 export const orderStatusColor = (s: string) => {
-  if (s === "Delivered")  return "bg-green-50 text-green-700";
-  if (s === "Shipped")    return "bg-blue-50 text-blue-700";
-  if (s === "Packed")     return "bg-purple-50 text-purple-700";
-  if (s === "Confirmed")  return "bg-yellow-50 text-yellow-700";
-  if (s === "Pending")    return "bg-orange-50 text-orange-700";
-  if (s === "Cancelled")  return "bg-red-50 text-red-700";
+  const status = (s || "").toLowerCase();
+  if (status === "delivered")        return "bg-green-50 text-green-700";
+  if (status === "shipped")           return "bg-blue-50 text-blue-700";
+  if (status === "packed")            return "bg-purple-50 text-purple-700";
+  if (status === "confirmed")         return "bg-yellow-50 text-yellow-700";
+  if (status === "pending")           return "bg-orange-50 text-orange-700";
+  if (status === "out_for_delivery")  return "bg-sky-50 text-sky-700";
+  if (status === "processing")        return "bg-indigo-50 text-indigo-700";
+  if (status === "cancelled")         return "bg-red-50 text-red-700";
+  if (status === "returned")          return "bg-rose-50 text-rose-700";
   return "bg-gray-50 text-gray-700";
 };
 
 export const payStatusColor = (s: string) => {
-  if (s === "Success" || s === "Paid") return "bg-green-50 text-green-700";
-  if (s === "Pending")  return "bg-yellow-50 text-yellow-700";
-  if (s === "Refunded") return "bg-red-50 text-red-700";
+  const status = (s || "").toLowerCase();
+  if (status === "success" || status === "paid" || status === "completed") return "bg-green-50 text-green-700";
+  if (status === "pending")  return "bg-yellow-50 text-yellow-700";
+  if (status === "refunded") return "bg-red-50 text-red-700";
+  if (status === "failed")   return "bg-red-100 text-red-800";
   return "bg-gray-50 text-gray-700";
 };
 

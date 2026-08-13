@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Download, Truck, MapPin, CreditCard, RotateCcw, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, Download, Truck, MapPin, CreditCard, RotateCcw, RefreshCw, XCircle, Star } from "lucide-react";
 import { deliveryStatusColor, paymentStatusColor } from "./dashboardData";
 import type { NavigateFn } from "./dashboardData";
 import { orderService } from "../services/order.service";
 import { invoiceService } from "../services/invoice.service";
+import { reviewService } from "../services/review.service";
 import { extractErrorMessage } from "../utils/errorExtractor";
+import { formatImageUrl } from "../utils/imageUrl";
 import { toast } from "sonner";
 
 export default function OrderDetails({ orderId, onNavigate }: { orderId: string | null; onNavigate: NavigateFn }) {
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewItem, setReviewItem] = useState<any | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewBody, setReviewBody] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [order, setOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +68,29 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
       toast.error(msg);
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewItem || reviewRating < 1) return;
+    setSubmittingReview(true);
+    try {
+      await reviewService.createReview({
+        product_id: reviewItem.product_id,
+        order_item_id: reviewItem.id,
+        rating: reviewRating,
+        title: reviewTitle || "My Review",
+        review: reviewBody,
+      });
+      toast.success("Review submitted successfully!");
+      setShowReviewModal(false);
+      setReviewTitle("");
+      setReviewBody("");
+      setReviewRating(5);
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, "Failed to submit review."));
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -184,12 +215,14 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
             <h3 className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#1a1a1a] mb-5 pb-3 border-b border-[#ececec]">Ordered Items</h3>
             <div className="space-y-4">
               {orderItems.map((item: any, i: number) => {
-                const itemImg = item.thumbnail || item.product_image || item.img || "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=120&h=150&fit=crop";
+                const rawImg = item.thumbnail || item.product_image || item.image || item.img || null;
+                const itemImg = rawImg ? formatImageUrl(rawImg) : "https://images.unsplash.com/photo-1652473291442-7a2e034a00d1?w=120&h=150&fit=crop";
                 const itemName = item.product_name || item.name || "Product Item";
-                const itemPrice = item.price || item.unit_price || 0;
+                const itemPrice = Number(item.price || item.unit_price || 0);
                 const itemQty = item.quantity || item.qty || 1;
-                const itemSize = item.size_name || item.size || "M";
+                const itemSize = item.size_name || item.size || "";
                 const sellerName = item.seller_name || order.seller_name || "Mandola Official";
+                const isDeliveredOrder = (delStatus || "").toLowerCase() === "delivered";
 
                 return (
                   <div key={i} className="flex gap-4">
@@ -197,11 +230,21 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#1a1a1a]">{itemName}</p>
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                        <span className="text-[10px] text-[#6e6e6e] tracking-wide">Size: {itemSize}</span>
+                        {itemSize && <span className="text-[10px] text-[#6e6e6e] tracking-wide">Size: {itemSize}</span>}
                         <span className="text-[10px] text-[#6e6e6e] tracking-wide">Qty: {itemQty}</span>
                         <span className="text-[10px] text-[#6e6e6e] tracking-wide">Seller: {sellerName}</span>
                       </div>
-                      <p className="text-sm font-semibold text-[#1a1a1a] mt-2">{formatCurrency(itemPrice)}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <p className="text-sm font-semibold text-[#1a1a1a]">{formatCurrency(itemPrice)}</p>
+                        {isDeliveredOrder && (
+                          <button
+                            onClick={() => { setReviewItem(item); setShowReviewModal(true); }}
+                            className="flex items-center gap-1 text-[9px] tracking-[0.12em] uppercase px-2 py-1 border border-[#d4145a] text-[#d4145a] hover:bg-[#d4145a] hover:text-white transition-colors"
+                          >
+                            <Star size={10} /> Write Review
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -236,7 +279,7 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
-            {delStatus !== "Cancelled" && delStatus !== "Delivered" && (
+            {!(["cancelled", "delivered"].includes((delStatus || "").toLowerCase())) && (
               <button onClick={() => onNavigate("tracking", String(order.id || orderId))}
                 className="flex items-center gap-2 px-5 py-2.5 bg-[#1a1a1a] text-white text-[10px] tracking-[0.2em] uppercase hover:bg-[#d4145a] transition-colors">
                 <Truck size={13} /> Track Order
@@ -248,13 +291,13 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
                 <Download size={13} /> Download Invoice
               </button>
             )}
-            {delStatus !== "Cancelled" && delStatus !== "Delivered" && delStatus !== "Shipped" && (
+            {!([ "cancelled", "delivered", "shipped"].includes((delStatus || "").toLowerCase())) && (
               <button onClick={() => setShowCancelModal(true)}
                 className="flex items-center gap-2 px-5 py-2.5 border border-red-200 text-red-600 text-[10px] tracking-[0.15em] uppercase hover:bg-red-50 transition-colors">
                 <XCircle size={13} /> Cancel Order
               </button>
             )}
-            {delStatus === "Delivered" && (
+            {(delStatus || "").toLowerCase() === "delivered" && (
               <button onClick={() => toast.info("Return request submitted for this order.")}
                 className="flex items-center gap-2 px-5 py-2.5 border border-[#ececec] text-[#1a1a1a] text-[10px] tracking-[0.15em] uppercase hover:border-[#d4145a] hover:text-[#d4145a] transition-colors">
                 <RotateCcw size={13} /> Request Return
@@ -343,6 +386,59 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
                 className="flex-1 bg-red-600 text-white py-2.5 text-[10px] uppercase tracking-[0.15em] hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {cancelling ? <RefreshCw size={12} className="animate-spin" /> : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Write Review Modal */}
+      {showReviewModal && reviewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white w-full max-w-md p-8 relative shadow-2xl">
+            <button onClick={() => setShowReviewModal(false)} className="absolute top-4 right-4 text-[#9e9e9e] hover:text-[#1a1a1a]">
+              <XCircle size={18} />
+            </button>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Product Review</span>
+            <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mt-1 mb-4">
+              {reviewItem.product_name || reviewItem.name || "Rate this product"}
+            </h3>
+
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-[#6e6e6e] mb-2">Your Rating</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button key={s} onClick={() => setReviewRating(s)}>
+                    <Star size={24} className={s <= reviewRating ? "fill-[#d4145a] text-[#d4145a]" : "fill-[#ececec] text-[#ececec]"} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input
+              value={reviewTitle}
+              onChange={(e) => setReviewTitle(e.target.value)}
+              placeholder="Review title (e.g. Great quality!)"
+              className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] mb-3"
+            />
+            <textarea
+              rows={4}
+              value={reviewBody}
+              onChange={(e) => setReviewBody(e.target.value)}
+              placeholder="Share your experience with this product..."
+              className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] mb-4 resize-none"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowReviewModal(false)} className="flex-1 border border-[#ececec] py-2.5 text-[10px] uppercase tracking-[0.15em] hover:border-[#1a1a1a]">
+                Cancel
+              </button>
+              <button
+                disabled={submittingReview}
+                onClick={handleSubmitReview}
+                className="flex-1 bg-[#d4145a] text-white py-2.5 text-[10px] uppercase tracking-[0.15em] hover:bg-[#b8114d] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submittingReview ? <RefreshCw size={12} className="animate-spin" /> : "Submit Review"}
               </button>
             </div>
           </div>

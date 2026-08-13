@@ -177,6 +177,11 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const [lookAdded, setLookAdded] = useState(false);
   const [helpfulClicked, setHelpfulClicked] = useState<Set<number>>(new Set());
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewBody, setReviewBody] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
 
   const [liveSizes, setLiveSizes] = useState<Size[]>([]);
@@ -423,8 +428,44 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
     { key: "washcare", label: "Wash Care" },
     { key: "shipping", label: "Shipping" },
     { key: "returns", label: "Returns" },
-    { key: "sizechart", label: "Size Chart" },
+    {key: "sizechart", label: "Size Chart" },
   ];
+
+  const handleCreateReview = async () => {
+    if (!isLogged) {
+      toast.info("Please log in to write a review.");
+      const productSlug = (product as any).slug || product.id;
+      navigate("/login?redirect=/product/" + productSlug);
+      return;
+    }
+    if (!reviewBody.trim()) {
+      toast.error("Please enter a review message.");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await reviewService.createReview({
+        product_id: product.id,
+        rating: reviewRating,
+        title: reviewTitle || "Product Review",
+        review: reviewBody,
+      });
+      toast.success("Thank you! Your review has been submitted.");
+      setShowReviewModal(false);
+      setReviewTitle("");
+      setReviewBody("");
+      setReviewRating(5);
+      reviewService.getProductReviews(product.id).then(res => {
+        const rawData: any = res?.data || res;
+        const items = Array.isArray(rawData) ? rawData : Array.isArray(rawData?.items) ? rawData.items : Array.isArray(rawData?.data) ? rawData.data : [];
+        if (items.length > 0) setLiveReviews(items);
+      }).catch(() => {});
+    } catch (err: any) {
+      toast.error("Failed to submit review.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -925,7 +966,7 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
               <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Customer Reviews</span>
               <h2 className="font-['Playfair_Display'] text-2xl md:text-3xl font-bold text-[#1a1a1a] mt-2">What They&apos;re Saying</h2>
             </div>
-            <button className="hidden md:block text-[10px] tracking-[0.2em] uppercase font-semibold border border-[#1a1a1a] text-[#1a1a1a] px-5 py-3 hover:bg-[#1a1a1a] hover:text-white transition-all">Write a Review</button>
+            <button onClick={() => setShowReviewModal(true)} className="hidden md:block text-[10px] tracking-[0.2em] uppercase font-semibold border border-[#1a1a1a] text-[#1a1a1a] px-5 py-3 hover:bg-[#1a1a1a] hover:text-white transition-all">Write a Review</button>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-10">
@@ -1023,7 +1064,7 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
 
           <div className="flex flex-col md:flex-row gap-3 mt-8">
             <button className="flex-1 py-3.5 border border-[#ececec] text-[10px] tracking-[0.2em] uppercase font-semibold text-[#6e6e6e] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all">Load More Reviews</button>
-            <button className="flex-1 py-3.5 border border-[#d4145a] text-[10px] tracking-[0.2em] uppercase font-semibold text-[#d4145a] hover:bg-[#d4145a] hover:text-white transition-all md:hidden">Write a Review</button>
+            <button onClick={() => setShowReviewModal(true)} className="flex-1 py-3.5 border border-[#d4145a] text-[10px] tracking-[0.2em] uppercase font-semibold text-[#d4145a] hover:bg-[#d4145a] hover:text-white transition-all md:hidden">Write a Review</button>
           </div>
         </div>
 
@@ -1200,6 +1241,60 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
           </div>
         </div>
       )}
+
+      {/* Write Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white w-full max-w-md p-8 relative shadow-2xl">
+            <button onClick={() => setShowReviewModal(false)} className="absolute top-4 right-4 text-[#9e9e9e] hover:text-[#1a1a1a]">
+              <X size={18} />
+            </button>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Write Review</span>
+            <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mt-1 mb-4">
+              {product.name}
+            </h3>
+
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-[#6e6e6e] mb-2">Overall Rating</p>
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button key={s} onClick={() => setReviewRating(s)}>
+                    <Star size={24} className={s <= reviewRating ? "fill-[#d4145a] text-[#d4145a]" : "fill-[#ececec] text-[#ececec]"} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input
+              value={reviewTitle}
+              onChange={(e) => setReviewTitle(e.target.value)}
+              placeholder="Review title (e.g. Great fabric and fit!)"
+              className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] mb-3"
+            />
+            <textarea
+              rows={4}
+              value={reviewBody}
+              onChange={(e) => setReviewBody(e.target.value)}
+              placeholder="Write your detailed review..."
+              className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] mb-4 resize-none"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowReviewModal(false)} className="flex-1 border border-[#ececec] py-2.5 text-[10px] uppercase tracking-[0.15em] hover:border-[#1a1a1a]">
+                Cancel
+              </button>
+              <button
+                disabled={submittingReview}
+                onClick={handleCreateReview}
+                className="flex-1 bg-[#d4145a] text-white py-2.5 text-[10px] uppercase tracking-[0.15em] hover:bg-[#b8114d] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submittingReview ? <RefreshCw size={12} className="animate-spin" /> : "Submit Review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

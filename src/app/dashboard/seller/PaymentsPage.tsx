@@ -53,6 +53,28 @@ export default function PaymentsPage() {
   const paidSettlement = Number(revenueStats.paid_settlement || (totalEarnings - pendingSettlement));
   const totalRevenue = Number(revenueStats.total_revenue || 0);
 
+  const handleExportStatement = () => {
+    if (settlements.length === 0) return;
+    const headers = ["Settlement #", "Period", "Orders", "Gross Sales", "Platform Fee", "Net Payout", "Status"];
+    const rows = settlements.map((s: any) => [
+      s.settlement_number || `SET-${s.id}`,
+      s.period || "Monthly",
+      s.orders_count || 1,
+      s.gross_amount || 0,
+      s.commission_amount || s.platform_fees || 0,
+      s.net_settlement_amount || s.net_amount || 0,
+      s.status || "pending",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "seller_statement.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="font-['Jost',sans-serif]">
       <div className="mb-6">
@@ -96,7 +118,7 @@ export default function PaymentsPage() {
             <p className="font-['Playfair_Display'] text-lg font-bold text-[#1a1a1a]">History ({settlements.length})</p>
           </div>
           <button
-            onClick={() => window.print()}
+            onClick={handleExportStatement}
             className="flex items-center gap-1.5 px-4 py-2 border border-[#ececec] text-[9px] tracking-[0.12em] uppercase text-[#6e6e6e] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
           >
             <Download size={12} strokeWidth={1.5} />
