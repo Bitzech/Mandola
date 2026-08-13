@@ -38,9 +38,11 @@ export function CartPanel({ onClose }: CartPanelProps) {
             </div>
           ) : (
             items.map((item) => {
-              const variantId = Number(item.product_variant_id);
+              const variantId = Number(item.product_variant_id || item.variant_id || item.id);
               const name = item.product_name || item.name || "Fashion Style";
-              const price = Number(item.sale_price !== null && item.sale_price !== undefined ? item.sale_price : item.price) || 0;
+              const rawSalePrice = item.sale_price !== null && item.sale_price !== undefined ? Number(item.sale_price) : 0;
+              const rawPrice = item.price !== null && item.price !== undefined ? Number(item.price) : 0;
+              const price = (rawSalePrice > 0 ? rawSalePrice : rawPrice) || 0;
               const qty = Number(item.quantity) || 1;
               const sizeLabel = item.size ? `Size: ${item.size}` : "";
               const colorLabel = item.color ? `Color: ${item.color}` : "";
@@ -125,7 +127,14 @@ export function WishlistPanel({ wishCount, onClose }: WishlistPanelProps) {
   const handleQuickAdd = (p: any) => {
     const pId = Number(p.product_id || p.id);
     const variantId = Number(p.default_variant_id || p.variant_id || p.product_variant_id || pId);
-    addToCartItem(variantId, 1);
+    const itemDetails = {
+      product_id: pId,
+      name: p.name || p.product_name || "Fashion Style",
+      price: Number(p.price || 0),
+      sale_price: p.sale_price !== undefined && p.sale_price !== null ? Number(p.sale_price) : Number(p.price || 0),
+      thumbnail: p.img || p.img1 || p.thumbnail || "",
+    };
+    addToCartItem(variantId, 1, itemDetails);
     onClose();
     navigate("/checkout");
   };

@@ -307,9 +307,21 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
   const { addItem: addToCartItem } = useCart();
 
   const handleAddToBag = () => {
-    if (!selectedSize) return;
+    if (!selectedSize) {
+      toast.error("Please select a size first");
+      return;
+    }
     const variantId = (product as any).default_variant_id || (product as any).variant_id || product.id || 1;
-    addToCartItem(Number(variantId), qty);
+    const itemDetails = {
+      product_id: product.id,
+      name: product.name,
+      price: Number(product.price || 0),
+      sale_price: (product as any).sale_price !== undefined && (product as any).sale_price !== null ? Number((product as any).sale_price) : Number(product.price || 0),
+      thumbnail: product.img1 || (product as any).primary_image || (product as any).thumbnail || "",
+      size: selectedSize,
+      color: selectedColor || "",
+    };
+    addToCartItem(Number(variantId), qty, itemDetails);
     onAddToBag();
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);

@@ -104,7 +104,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const itemCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
 
   const subtotal = items.reduce((sum, item) => {
-    const price = Number(item.sale_price !== null && item.sale_price !== undefined ? item.sale_price : item.price) || 0;
+    const rawSalePrice = item.sale_price !== null && item.sale_price !== undefined ? Number(item.sale_price) : 0;
+    const rawPrice = item.price !== null && item.price !== undefined ? Number(item.price) : 0;
+    const price = (rawSalePrice > 0 ? rawSalePrice : rawPrice) || 0;
     const qty = Number(item.quantity) || 1;
     return sum + price * qty;
   }, 0);
@@ -112,6 +114,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = async (productVariantId: number, quantity = 1, itemDetails?: any) => {
     const vId = Number(productVariantId);
     if (!vId || isNaN(vId)) return;
+
+    const parsedPrice = Number(itemDetails?.price ?? itemDetails?.regular_price ?? itemDetails?.mrp ?? 0);
+    const parsedSalePrice = itemDetails?.sale_price !== undefined && itemDetails?.sale_price !== null
+      ? Number(itemDetails.sale_price)
+      : parsedPrice;
 
     if (!isLogged || isAdminOrSeller) {
       // Local cart add for guests and admin/seller preview accounts
@@ -123,14 +130,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       let updated: any[];
       if (existingIdx >= 0) {
         updated = [...currentGuestItems];
-        updated[existingIdx].quantity = (Number(updated[existingIdx].quantity) || 1) + Number(quantity);
+        const existing = updated[existingIdx];
+        const newQty = (Number(existing.quantity) || 1) + Number(quantity);
+        const updatedPrice = (Number(existing.price) > 0 ? Number(existing.price) : parsedPrice) || 0;
+        const updatedSalePrice = (Number(existing.sale_price) > 0 ? Number(existing.sale_price) : parsedSalePrice) || updatedPrice;
+
+        updated[existingIdx] = {
+          ...existing,
+          quantity: newQty,
+          price: updatedPrice,
+          sale_price: updatedSalePrice,
+          name: existing.name && existing.name !== "Fashion Style" ? existing.name : (itemDetails?.name || itemDetails?.product_name || "Fashion Style"),
+          thumbnail: existing.thumbnail || itemDetails?.thumbnail || itemDetails?.img1 || itemDetails?.img || "",
+          size: itemDetails?.size || existing.size || "",
+          color: itemDetails?.color || existing.color || "",
+        };
       } else {
         const newItem = {
           product_variant_id: vId,
           quantity: Number(quantity),
           name: itemDetails?.name || itemDetails?.product_name || "Fashion Style",
-          price: itemDetails?.price || itemDetails?.mrp || 0,
-          sale_price: itemDetails?.sale_price !== undefined ? itemDetails.sale_price : itemDetails?.price || 0,
+          price: parsedPrice,
+          sale_price: parsedSalePrice,
           thumbnail: itemDetails?.thumbnail || itemDetails?.img1 || itemDetails?.img || "",
           size: itemDetails?.size || "",
           color: itemDetails?.color || "",
