@@ -8,6 +8,7 @@ import { reviewService } from "../services/review.service";
 import { extractErrorMessage } from "../utils/errorExtractor";
 import { formatImageUrl } from "../utils/imageUrl";
 import { toast } from "sonner";
+import { apiClient } from "../services/apiClient";
 
 export default function OrderDetails({ orderId, onNavigate }: { orderId: string | null; onNavigate: NavigateFn }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -16,6 +17,14 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnItem, setReturnItem] = useState<any>(null);
+  const [returnReason, setReturnReason] = useState("quality_issue");
+  const [returnDescription, setReturnDescription] = useState("");
+  const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [requestedReturnItemIds, setRequestedReturnItemIds] = useState<Set<number>>(new Set());
+
   const [order, setOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +108,8 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
     try {
       const invId = order.invoice_id || order.id || orderId;
       const res = await invoiceService.downloadInvoice(invId);
-      const downloadUrl = res.data?.pdf_url || res.data?.url || res.url;
+      const rawUrl = res.data?.pdf_url || res.data?.url || res.url;
+      const downloadUrl = rawUrl ? formatImageUrl(rawUrl) : "";
       if (downloadUrl) {
         window.open(downloadUrl, "_blank");
       } else {
@@ -188,6 +198,29 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
     ? `${shippingAddr.full_name || shippingAddr.name || ""}, ${shippingAddr.address_line_1 || shippingAddr.line1 || ""}, ${shippingAddr.city || ""}, ${shippingAddr.state || ""} - ${shippingAddr.pincode || ""}`
     : String(shippingAddr || "Saved Customer Address");
 
+  const handleCreateReturn = async () => {
+    if (!returnItem) return;
+    setSubmittingReturn(true);
+    try {
+      await apiClient.post("/returns", {
+        order_id: Number(order.id),
+        order_item_id: Number(returnItem.id),
+        reason: returnReason,
+        description: returnDescription || "Customer requested return",
+        requested_quantity: returnItem.quantity || 1
+      });
+      toast.success("Return request submitted successfully!");
+      setRequestedReturnItemIds(prev => new Set(prev).add(Number(returnItem.id)));
+      setShowReturnModal(false);
+      setReturnItem(null);
+      setReturnDescription("");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to submit return request.");
+    } finally {
+      setSubmittingReturn(false);
+    }
+  };
+
   return (
     <div>
       {/* Back */}
@@ -237,12 +270,26 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
                       <div className="flex items-center gap-3 mt-2">
                         <p className="text-sm font-semibold text-[#1a1a1a]">{formatCurrency(itemPrice)}</p>
                         {isDeliveredOrder && (
-                          <button
-                            onClick={() => { setReviewItem(item); setShowReviewModal(true); }}
-                            className="flex items-center gap-1 text-[9px] tracking-[0.12em] uppercase px-2 py-1 border border-[#d4145a] text-[#d4145a] hover:bg-[#d4145a] hover:text-white transition-colors"
-                          >
-                            <Star size={10} /> Write Review
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setReviewItem(item); setShowReviewModal(true); }}
+                              className="flex items-center gap-1 text-[9px] tracking-[0.12em] uppercase px-2 py-1 border border-[#d4145a] text-[#d4145a] hover:bg-[#d4145a] hover:text-white transition-colors"
+                            >
+                              <Star size={10} /> Write Review
+                            </button>
+                            {requestedReturnItemIds.has(Number(item.id)) ? (
+                              <span className="text-[9px] tracking-[0.1em] uppercase px-2 py-1 bg-yellow-50 text-yellow-700 font-semibold">
+                                Return Requested
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => { setReturnItem(item); setShowReturnModal(true); }}
+                                className="flex items-center gap-1 text-[9px] tracking-[0.12em] uppercase px-2 py-1 border border-[#6e6e6e] text-[#6e6e6e] hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-colors"
+                              >
+                                <RotateCcw size={10} /> Request Return
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -439,6 +486,60 @@ export default function OrderDetails({ orderId, onNavigate }: { orderId: string 
                 className="flex-1 bg-[#d4145a] text-white py-2.5 text-[10px] uppercase tracking-[0.15em] hover:bg-[#b8114d] disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submittingReview ? <RefreshCw size={12} className="animate-spin" /> : "Submit Review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return Request Modal */}
+      {showReturnModal && returnItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white w-full max-w-md p-8 relative shadow-2xl">
+            <button onClick={() => setShowReturnModal(false)} className="absolute top-4 right-4 text-[#9e9e9e] hover:text-[#1a1a1a]">
+              <XCircle size={18} />
+            </button>
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#d4145a] font-semibold">Request Return</span>
+            <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#1a1a1a] mt-1 mb-4 truncate">
+              {returnItem.product_name || returnItem.name || "Return Item"}
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-[10px] uppercase tracking-[0.15em] text-[#6e6e6e] mb-2 font-semibold">Select Reason</label>
+              <select
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] bg-white focus:outline-none focus:border-[#d4145a]"
+              >
+                <option value="quality_issue">Quality / Fabric Issue</option>
+                <option value="damaged">Item Received Damaged</option>
+                <option value="wrong_item">Wrong Item Delivered</option>
+                <option value="missing_item">Item / Accessory Missing</option>
+                <option value="not_as_described">Product Not As Described</option>
+                <option value="size_issue">Size / Fit Issue</option>
+                <option value="duplicate_order">Duplicate Order</option>
+                <option value="other">Other Reason</option>
+              </select>
+            </div>
+
+            <textarea
+              rows={4}
+              value={returnDescription}
+              onChange={(e) => setReturnDescription(e.target.value)}
+              placeholder="Describe the issue with the item..."
+              className="w-full border border-[#ececec] p-3 text-xs text-[#1a1a1a] focus:outline-none focus:border-[#d4145a] mb-4 resize-none"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowReturnModal(false)} className="flex-1 border border-[#ececec] py-2.5 text-[10px] uppercase tracking-[0.15em] hover:border-[#1a1a1a]">
+                Cancel
+              </button>
+              <button
+                disabled={submittingReturn}
+                onClick={handleCreateReturn}
+                className="flex-1 bg-[#1a1a1a] text-white py-2.5 text-[10px] uppercase tracking-[0.15em] hover:bg-[#d4145a] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              >
+                {submittingReturn ? <RefreshCw size={12} className="animate-spin" /> : "Submit Request"}
               </button>
             </div>
           </div>

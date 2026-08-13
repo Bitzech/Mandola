@@ -3,6 +3,7 @@ import { Download, FileText, RefreshCw } from "lucide-react";
 import { fmt } from "./adminData";
 import { invoiceService } from "../../services/invoice.service";
 import { extractErrorMessage } from "../../utils/errorExtractor";
+import { formatImageUrl } from "../../utils/imageUrl";
 import { toast } from "sonner";
 
 export default function AdminInvoices() {
@@ -39,8 +40,15 @@ export default function AdminInvoices() {
 
   const handleDownload = async (id: string | number) => {
     try {
-      await invoiceService.downloadInvoice(id);
-      toast.success("Downloading invoice PDF...");
+      const res: any = await invoiceService.downloadInvoice(id);
+      const rawUrl = res.data?.pdf_url || res.data?.url || res.url;
+      const downloadUrl = rawUrl ? formatImageUrl(rawUrl) : "";
+      if (downloadUrl) {
+        window.open(downloadUrl, "_blank");
+        toast.success("Downloading invoice PDF...");
+      } else {
+        toast.info("Invoice generated.");
+      }
     } catch (err: any) {
       toast.error(extractErrorMessage(err, "Failed to download invoice."));
     }

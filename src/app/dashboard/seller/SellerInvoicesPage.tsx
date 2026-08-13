@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Download, FileText, RefreshCw, Search } from "lucide-react";
 import { fmt } from "./sellerData";
 import { invoiceService } from "../../services/invoice.service";
+import { formatImageUrl } from "../../utils/imageUrl";
 
 export default function SellerInvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -40,9 +41,15 @@ export default function SellerInvoicesPage() {
 
   const handleDownload = async (invId: string | number) => {
     try {
-      await invoiceService.downloadInvoice(invId);
+      const res: any = await invoiceService.downloadInvoice(invId);
+      const rawUrl = res.data?.pdf_url || res.data?.url || res.url;
+      const downloadUrl = rawUrl ? formatImageUrl(rawUrl) : "";
+      if (downloadUrl) {
+        window.open(downloadUrl, "_blank");
+      } else {
+        window.print();
+      }
     } catch {
-      alert("Invoice PDF dialog opened.");
       window.print();
     }
   };

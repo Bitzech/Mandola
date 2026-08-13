@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { orderService } from "../services/order.service";
+import { paymentService } from "../services/payment.service";
 import { addressService } from "../services/address.service";
 import { formatImageUrl } from "../utils/imageUrl";
 import { extractErrorMessage } from "../utils/errorExtractor";
@@ -148,30 +149,49 @@ export default function CheckoutPage() {
         }))
       };
 
-      const submitOrderToBackend = async (paymentId: string) => {
-        let orderRes: any;
-        try {
-          orderRes = await orderService.placeOrder(orderPayload);
-        } catch (apiErr: any) {
-          console.error("[Checkout] placeOrder API error:", apiErr);
-          const msg = extractErrorMessage(apiErr, "Failed to place order.");
-          toast.error(msg);
-          setProcessing(false);
-          return;
-        }
+      let orderRes: any;
+      try {
+        orderRes = await orderService.placeOrder(orderPayload);
+      } catch (apiErr: any) {
+        console.error("[Checkout] placeOrder API error:", apiErr);
+        const msg = extractErrorMessage(apiErr, "Failed to place order.");
+        toast.error(msg);
+        setProcessing(false);
+        return;
+      }
 
-        const createdOrder = orderRes?.data || orderRes;
-        if (!createdOrder) {
-          toast.error("Order placement failed. Please try again.");
-          setProcessing(false);
-          return;
-        }
+      const createdOrder = orderRes?.data || orderRes;
+      if (!createdOrder || !createdOrder.id) {
+        toast.error("Order placement failed. Please try again.");
+        setProcessing(false);
+        return;
+      }
 
-        const realOrderNumber = createdOrder?.order_number || createdOrder?.orderNumber || ("ORD-" + Math.floor(100000 + Math.random() * 900000));
+      const orderId = Number(createdOrder.id);
+      const realOrderNumber = createdOrder.order_number || createdOrder.orderNumber || ("ORD-" + Math.floor(100000 + Math.random() * 900000));
 
+      // Initiate payment record in backend
+      let paymentRes: any;
+      try {
+        const payInitRes = await paymentService.createPayment({
+          order_id: orderId,
+          gateway: paymentMethod,
+          payment_method: paymentMethod === "razorpay" ? "card" : "cod",
+        });
+        paymentRes = payInitRes?.data || payInitRes;
+      } catch (payErr: any) {
+        console.error("[Checkout] createPayment API error:", payErr);
+        toast.error(extractErrorMessage(payErr, "Failed to initialize payment record."));
+        setProcessing(false);
+        return;
+      }
+
+      const paymentReference = paymentRes?.payment_reference || paymentRes?.paymentReference;
+
+      const finishOrderCheckout = (txnId: string) => {
         const completedData = {
           orderNumber: realOrderNumber,
-          paymentId: paymentId,
+          paymentId: txnId || paymentReference || "SUCCESS",
           amount: grandTotal,
           customerName: formData.fullName,
           shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
@@ -179,11 +199,11 @@ export default function CheckoutPage() {
         };
 
         if (!isBuyNow) {
-          await clearCart();
+          clearCart();
         }
         setOrderCompleted(completedData);
         setProcessing(false);
-        toast.success(`Order #${realOrderNumber} placed successfully!`);
+        toast.success(`Order #${realOrderNumber} placed & verified successfully!`);
       };
 
       if (paymentMethod === "razorpay") {
@@ -204,9 +224,20 @@ export default function CheckoutPage() {
           description: `Payment for ${items.length} fashion item(s)`,
           image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=100&h=100&fit=crop",
           handler: async function (response: any) {
-            toast.success("Payment successful! Processing order...");
-            const payId = response.razorpay_payment_id || ("pay_test_" + Math.random().toString(36).substring(7));
-            await submitOrderToBackend(payId);
+            toast.info("Payment received! Verifying signature...");
+            try {
+              await paymentService.verifyPayment({
+                payment_reference: paymentReference,
+                gateway_order_id: response.razorpay_order_id || paymentRes?.gateway_order_id,
+                gateway_payment_id: response.razorpay_payment_id,
+                gateway_signature: response.razorpay_signature,
+              });
+              finishOrderCheckout(response.razorpay_payment_id);
+            } catch (verErr: any) {
+              console.error("[Checkout] verifyPayment error:", verErr);
+              toast.error("Payment verification failed. Please contact support.");
+              setProcessing(false);
+            }
           },
           prefill: {
             name: formData.fullName,
@@ -231,8 +262,18 @@ export default function CheckoutPage() {
         });
         rzp.open();
       } else {
-        const payId = "COD-" + Math.random().toString(36).substring(7).toUpperCase();
-        await submitOrderToBackend(payId);
+        // COD Payment verification
+        try {
+          await paymentService.verifyPayment({
+            payment_reference: paymentReference,
+          });
+          const payId = "COD-" + Math.random().toString(36).substring(7).toUpperCase();
+          finishOrderCheckout(payId);
+        } catch (codErr: any) {
+          console.error("[Checkout] COD verify error:", codErr);
+          toast.error("Failed to process COD order.");
+          setProcessing(false);
+        }
       }
     } catch (err: any) {
       console.error("[Checkout] Error placing order:", err);

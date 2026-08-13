@@ -18,7 +18,7 @@ export default function AdminPayments() {
     setLoading(true);
     setError(null);
     try {
-      const response: any = await adminService.getPayments({ limit: 200 });
+      const response: any = await adminService.getPayments({ limit: 100 });
       const rawData = response.data || response;
       const itemsList = Array.isArray(rawData)
         ? rawData

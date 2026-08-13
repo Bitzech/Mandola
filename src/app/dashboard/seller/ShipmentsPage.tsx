@@ -60,14 +60,22 @@ export default function ShipmentsPage() {
   const handleUpdateStatus = async (shipmentId: string | number) => {
     setUpdating(true);
     try {
-      await sellerService.updateOrderStatus(shipmentId, statusVal, {
-        tracking_number: trackingNoInput,
-        awb_number: trackingNoInput,
-        courier_name: courierInput,
-        shipping_partner: courierInput,
-        location: locationVal,
-        remarks: remarksVal
-      });
+      try {
+        await shipmentService.updateShipmentStatus(shipmentId, {
+          status: statusVal,
+          location: locationVal,
+          remarks: remarksVal
+        });
+      } catch {
+        await sellerService.updateOrderStatus(shipmentId, statusVal, {
+          tracking_number: trackingNoInput,
+          awb_number: trackingNoInput,
+          courier_name: courierInput,
+          shipping_partner: courierInput,
+          location: locationVal,
+          remarks: remarksVal
+        });
+      }
       toast.success("Shipment updated successfully!");
       setEditingId(null);
       fetchShipments();

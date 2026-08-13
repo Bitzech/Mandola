@@ -5,6 +5,7 @@ import type { NavigateFn } from "./dashboardData";
 import { invoiceService } from "../services/invoice.service";
 import { orderService } from "../services/order.service";
 import { extractErrorMessage } from "../utils/errorExtractor";
+import { formatImageUrl } from "../utils/imageUrl";
 import { toast } from "sonner";
 
 export default function InvoicesPage({ onNavigate }: { onNavigate: NavigateFn }) {
@@ -25,17 +26,19 @@ export default function InvoicesPage({ onNavigate }: { onNavigate: NavigateFn })
       let combinedInvoices: any[] = [];
 
       if (invRes.status === "fulfilled") {
-        const invData = invRes.value.data || invRes.value.items || invRes.value;
-        if (Array.isArray(invData) && invData.length > 0) {
-          combinedInvoices = invData;
+        const rawInv = (invRes.value?.data || invRes.value) as any;
+        const invList = Array.isArray(rawInv) ? rawInv : (rawInv?.items || rawInv?.invoices || rawInv?.data || []);
+        if (invList.length > 0) {
+          combinedInvoices = invList;
         }
       }
 
-      // If invoices endpoint returned empty or fallback to paid orders
+      // If invoices endpoint returned empty, fallback to paid orders list
       if (combinedInvoices.length === 0 && orderRes.status === "fulfilled") {
-        const orderData = orderRes.value.data || orderRes.value.items || orderRes.value;
-        if (Array.isArray(orderData)) {
-          combinedInvoices = orderData.filter(
+        const rawOrders = (orderRes.value?.data || orderRes.value) as any;
+        const orderList = Array.isArray(rawOrders) ? rawOrders : (rawOrders?.items || rawOrders?.orders || rawOrders?.data || []);
+        if (orderList.length > 0) {
+          combinedInvoices = orderList.filter(
             (o: any) => (o.payment_status || o.paymentStatus || "").toLowerCase() === "paid"
           );
         }
@@ -56,11 +59,12 @@ export default function InvoicesPage({ onNavigate }: { onNavigate: NavigateFn })
   }, []);
 
   const handleDownload = async (item: any) => {
-    const id = item.id || item.invoice_id || item.order_number;
+    const id = item.id || item.invoice_id || item.order_number || item.order_id;
     setDownloadingId(id);
     try {
       const res = await invoiceService.downloadInvoice(id);
-      const url = res.data?.pdf_url || res.data?.url || res.url;
+      const rawUrl = res.data?.pdf_url || res.data?.url || res.url;
+      const url = rawUrl ? formatImageUrl(rawUrl) : "";
       if (url) {
         window.open(url, "_blank");
         toast.success("Downloading invoice PDF...");
