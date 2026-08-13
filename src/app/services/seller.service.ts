@@ -69,7 +69,14 @@ export const sellerService = {
   },
 
   async updateOrderStatus(id: string | number, status: string, extra?: any): Promise<ApiResponse> {
-    const payload = { status, ...extra };
+    const formattedStatus = status.toLowerCase().replace(/ /g, "_");
+    const payload = {
+      order_status: formattedStatus,
+      status: formattedStatus,
+      status_reason: extra?.remarks || extra?.reason || extra?.status_reason || `Status updated to ${formattedStatus}`,
+      remarks: extra?.remarks || extra?.reason || `Status updated to ${formattedStatus}`,
+      ...extra
+    };
     const response = await apiClient.patch(API_ENDPOINTS.SELLER.ORDER_STATUS(id), payload);
     return response.data;
   },

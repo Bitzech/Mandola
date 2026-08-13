@@ -165,16 +165,19 @@ export default function OrderTracking({ orderId, onNavigate }: { orderId: string
       done: true,
     }));
   } else {
-    const isDelivered = String(delStatus).toLowerCase() === "delivered";
-    const isShipped = String(delStatus).toLowerCase() === "shipped" || String(delStatus).toLowerCase() === "in_transit" || isDelivered;
-    const isProcessing = String(delStatus).toLowerCase() === "processing" || isShipped;
+    const sLower = String(delStatus).toLowerCase();
+    const isDelivered = sLower === "delivered";
+    const isOutForDelivery = sLower === "out_for_delivery" || isDelivered;
+    const isShipped = sLower === "shipped" || isOutForDelivery;
+    const isPacked = sLower === "packed" || sLower === "ready_to_ship" || isShipped;
+    const isProcessing = sLower === "processing" || sLower === "confirmed" || isPacked;
 
     timeline = [
       { status: "Order Placed", location: "System", remarks: "Order placed successfully", date: orderDateStr, time: "System", done: true },
-      { status: "Payment Confirmed", location: "System", remarks: "Payment verified", date: orderDateStr, time: "System", done: true },
-      { status: "Processing", location: "Fulfillment Center", remarks: "Items packed", date: isProcessing ? orderDateStr : "—", time: "—", done: isProcessing },
-      { status: "Shipped", location: "Logistics Hub", remarks: "Dispatched with courier", date: isShipped ? orderDateStr : "—", time: "—", done: isShipped },
-      { status: "Out for Delivery", location: "Local Facility", remarks: "With delivery executive", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
+      { status: "Order Confirmed", location: "Store", remarks: "Order confirmed by seller", date: isProcessing ? orderDateStr : "—", time: "System", done: isProcessing },
+      { status: "Processing & Packed", location: "Fulfillment Hub", remarks: "Items packed in box", date: isPacked ? orderDateStr : "—", time: "—", done: isPacked },
+      { status: "Shipped", location: "Logistics Partner", remarks: "Dispatched with courier", date: isShipped ? orderDateStr : "—", time: "—", done: isShipped },
+      { status: "Out for Delivery", location: "Local Facility", remarks: "With delivery executive", date: isOutForDelivery ? orderDateStr : "—", time: "—", done: isOutForDelivery },
       { status: "Delivered", location: "Destination", remarks: "Package handed over", date: isDelivered ? orderDateStr : "—", time: "—", done: isDelivered },
     ];
   }

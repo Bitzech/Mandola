@@ -113,12 +113,17 @@ export default function SellerOrders({ onNavigate: _, selectedOrderId }: { onNav
     }
   };
 
-  const handleDownloadInvoice = async (invoiceId: string | number) => {
+  const handleDownloadInvoice = async (orderId: string | number) => {
     try {
-      await invoiceService.downloadInvoice(invoiceId);
-      toast.success("Invoice requested.");
+      toast.info("Generating invoice...");
+      const invoice = await invoiceService.generateInvoice(orderId);
+      if (invoice?.id) {
+        window.open(`/customer/invoices/${invoice.id}`, "_blank");
+        toast.success("Invoice opened!");
+      } else {
+        window.print();
+      }
     } catch {
-      toast.info("Opening invoice print dialog.");
       window.print();
     }
   };
