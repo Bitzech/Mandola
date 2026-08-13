@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { SELLER_ORDERS, orderStatusColor, fmt } from "./sellerData";
+import { orderStatusColor, fmt } from "./sellerData";
 import { shipmentService } from "../../services/shipment.service";
+import { sellerService } from "../../services/seller.service";
 import { apiClient } from "../../services/apiClient";
 import { toast } from "sonner";
 import { Loader2, Truck, RefreshCw, Search, MapPin } from "lucide-react";
@@ -35,23 +36,7 @@ export default function ShipmentsPage() {
       }
       const resData: any = res?.data || res;
       const itemsList = resData?.items || resData?.shipments || (Array.isArray(resData) ? resData : []);
-      if (Array.isArray(itemsList) && itemsList.length > 0) {
-        setShipments(itemsList);
-      } else {
-        // Fallback to mock if API returns empty
-        const mockList = SELLER_ORDERS.filter(o => o.tracking).map(o => ({
-          id: o.id,
-          shipment_number: `SHP-${o.id}`,
-          order_number: o.id,
-          customer_name: o.customer,
-          courier_name: o.courier!,
-          tracking_number: o.tracking!,
-          shipment_status: o.orderStatus,
-          estimated_delivery: "18 Jul 2025",
-          shipping_cost: 0,
-        }));
-        setShipments(mockList);
-      }
+      setShipments(Array.isArray(itemsList) ? itemsList : []);
     } catch (err: any) {
       setError(err?.message || "Failed to load shipments list.");
     } finally {
@@ -75,19 +60,14 @@ export default function ShipmentsPage() {
   const handleUpdateStatus = async (shipmentId: string | number) => {
     setUpdating(true);
     try {
-      if (shipmentService.updateShipmentStatus) {
-        await shipmentService.updateShipmentStatus(shipmentId, {
-          status: statusVal,
-          location: locationVal || "Seller Logistics Hub",
-          remarks: remarksVal || `Shipment status updated to ${statusVal}`,
-        });
-      }
-      if (trackingNoInput || courierInput) {
-        await apiClient.put(`/shipments/${shipmentId}`, {
-          tracking_number: trackingNoInput,
-          courier_name: courierInput
-        });
-      }
+      await sellerService.updateOrderStatus(shipmentId, statusVal, {
+        tracking_number: trackingNoInput,
+        awb_number: trackingNoInput,
+        courier_name: courierInput,
+        shipping_partner: courierInput,
+        location: locationVal,
+        remarks: remarksVal
+      });
       toast.success("Shipment updated successfully!");
       setEditingId(null);
       fetchShipments();
