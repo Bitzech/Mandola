@@ -35,18 +35,19 @@ export default function ProductRoutePage() {
       const catSlug = live.category_slug || (live.category_name ? live.category_name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") : "ethnic-wear");
 
       return {
+        ...(live as any),
         id: live.id,
         name: live.name,
         slug: live.slug || rawParam,
         category_name: live.category_name || "Ethnic Wear",
         category_slug: catSlug,
-        price: Number(live.sale_price || live.price),
+        price: Number(live.sale_price && Number(live.sale_price) > 0 ? live.sale_price : live.price),
         mrp: Number(live.price || live.sale_price),
+        sale_price: Number(live.sale_price && Number(live.sale_price) > 0 ? live.sale_price : live.price),
         img1: primaryImg,
         img2: secImg,
         colors: ["#FAF7F4", "#D4145A", "#1A1A1A"],
         tag: live.is_best_seller ? "Bestseller" : live.is_trending ? "Trending" : live.is_new_arrival ? "New" : "Featured",
-        ...(live as any)
       } as any;
     };
 

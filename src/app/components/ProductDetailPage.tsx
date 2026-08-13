@@ -248,7 +248,31 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
         product.img1.replace("500,650", "600,750"),
         product.img2.replace("500,650", "600,750"),
       ];
-  const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+  const rawSalePrice = (product as any).sale_price !== undefined && (product as any).sale_price !== null && Number((product as any).sale_price) > 0 ? Number((product as any).sale_price) : null;
+  const rawPrice = Number((product as any).price || (product as any).mrp || (product as any).regular_price || 0);
+
+  let priceVal: number;
+  let mrpVal: number;
+
+  if (rawSalePrice !== null && rawSalePrice > 0 && rawSalePrice < rawPrice) {
+    priceVal = rawSalePrice;
+    mrpVal = rawPrice;
+  } else if (product.mrp && product.price && product.mrp > product.price) {
+    priceVal = Number(product.price);
+    mrpVal = Number(product.mrp);
+  } else {
+    priceVal = Number(product.price || rawPrice || 0);
+    mrpVal = Number(product.mrp || rawPrice || priceVal);
+  }
+
+  const hasDiscount = mrpVal > priceVal;
+  const discount = hasDiscount ? Math.round(((mrpVal - priceVal) / mrpVal) * 100) : 0;
+  const sellerName = (product as any).seller_name || (product as any).seller_business_name || (product as any).brand_name || "Mandola Originals";
+  const brandName = (product as any).brand_name || (product as any).category_name || "Mandola Fashion";
+  const categoryName = (product as any).category_name || "Ethnic Wear";
+  const stockQty = (product as any).stock_quantity ?? (product as any).stock ?? 12;
+  const skuCode = (product as any).sku || `MDL-${product.id.toString().padStart(4, "0")}`;
+
   const sizes = liveSizes.length > 0
     ? liveSizes.map(s => s.name || s.code)
     : ["XS", "S", "M", "L", "XL", "XXL"];
@@ -548,16 +572,16 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
           <div className="flex flex-col">
             {/* Brand + Category */}
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#d4145a]">Mandola Fashion</span>
+              <span className="text-[10px] tracking-[0.25em] uppercase font-semibold text-[#d4145a]">{brandName}</span>
               <span className="text-[#ececec]">·</span>
-              <span className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">Ethnic Wear</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[#6e6e6e]">{categoryName}</span>
             </div>
 
             <h1 className="font-['Playfair_Display'] text-2xl md:text-3xl lg:text-4xl font-bold text-[#1a1a1a] leading-tight mb-2">{product.name}</h1>
 
             {/* Seller */}
             <button className="text-xs text-[#6e6e6e] hover:text-[#d4145a] transition-colors text-left mb-3 tracking-wide">
-              By <span className="underline underline-offset-2">Mandola Originals</span>
+              By <span className="underline underline-offset-2">{sellerName}</span>
             </button>
 
             {/* Rating */}
@@ -566,20 +590,26 @@ export default function ProductDetailPage({ product, onBack, onProductClick, onA
                 <Star size={11} className="fill-[#d4145a] text-[#d4145a]" />
                 <span className="text-xs font-semibold text-[#1a1a1a]">{avgRating}</span>
               </div>
-              <span className="text-xs text-[#6e6e6e]">{totalReviews} Ratings · 52 Reviews</span>
-              <span className="text-[9px] tracking-[0.15em] uppercase text-[#6e6e6e] border border-[#ececec] px-2 py-1">SKU: MDL-{product.id.toString().padStart(4, "0")}</span>
+              <span className="text-xs text-[#6e6e6e]">{totalReviews} Ratings · {displayReviews.length} Reviews</span>
+              <span className="text-[9px] tracking-[0.15em] uppercase text-[#6e6e6e] border border-[#ececec] px-2 py-1">SKU: {skuCode}</span>
             </div>
 
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-1">
-              <span className="font-['Playfair_Display'] text-3xl font-bold text-[#1a1a1a]">₹{product.price.toLocaleString("en-IN")}</span>
-              <span className="text-base text-[#6e6e6e] line-through">₹{product.mrp.toLocaleString("en-IN")}</span>
-              <span className="text-xs font-semibold text-[#d4145a] bg-[#fce8ef] px-2.5 py-1">{discount}% OFF</span>
+              <span className="font-['Playfair_Display'] text-3xl font-bold text-[#1a1a1a]">₹{priceVal.toLocaleString("en-IN")}</span>
+              {hasDiscount && (
+                <>
+                  <span className="text-base text-[#6e6e6e] line-through">₹{mrpVal.toLocaleString("en-IN")}</span>
+                  <span className="text-xs font-semibold text-[#d4145a] bg-[#fce8ef] px-2.5 py-1">{discount}% OFF</span>
+                </>
+              )}
             </div>
             <p className="text-[10px] text-[#6e6e6e] tracking-wide mb-1">Inclusive of all taxes (GST)</p>
             <div className="flex items-center gap-1.5 mb-5 pb-5 border-b border-[#ececec]">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-              <span className="text-xs text-green-700 font-medium">In Stock · 12 units left</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${stockQty > 0 ? "bg-green-500" : "bg-red-500"} flex-shrink-0`} />
+              <span className={`text-xs ${stockQty > 0 ? "text-green-700" : "text-red-700"} font-medium`}>
+                {stockQty > 0 ? `In Stock · ${stockQty} units left` : "Out of Stock"}
+              </span>
             </div>
 
             {/* Short description */}
